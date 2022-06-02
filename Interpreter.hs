@@ -251,7 +251,7 @@ interpret (Ass (EArrEl (Ident name) index_exp) val_exp) = do
             val <- evalExp val_exp
             modify (M.insert l val)
 
-interpret (Incr (EArrEl id i) e) = do
+-- interpret (Incr (EArrEl id i) e) = do
     
 
 interpret (Seq s1 s2) = do {interpret s1; interpret s2}
