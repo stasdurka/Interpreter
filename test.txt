@@ -1,0 +1,6 @@
+int f() [int x] {
+  x = 1;
+}
+main [int z] {
+  x = 2;
+}

@@ -1,0 +1,7 @@
+int f() [int x] {
+  x = 1;
+}
+main [ int z; int arr[10] ] {
+  z = 2;
+  z = arr[1];
+}

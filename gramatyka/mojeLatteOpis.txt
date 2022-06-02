@@ -1,0 +1,63 @@
+Język imperatywny na 25 pkt.
+
+Na 15 pkt
+    01 (trzy typy)
+    02 (literały, arytmetyka, porównania)
+    03 (zmienne, przypisanie)
+    04 (print)
+    05 (while, if)
+    06 (funkcje lub procedury, rekurencja)
+    07 (przez zmienną i przez wartość)
+    08 (zmienne read-only i pętla for)
+Na 20 pkt
+    09 (przesłanianie i statyczne wiązanie)
+    10 (obsługa błędów wykonania)
+    11 (funkcje zwracające wartość)
+Do 30 pkt
+    12 (4) (statyczne typowanie)
+    14 (1) (tablice indeksowane int)
+
+Opis języka:
+
+Język Latte z gramatyką podaną na Moodle z następującymi zmianami:
+
+-- wymuszone nawiasy klamrowe dla if, else, while
+np.
+
+if (x > 0) { 
+    x-- ; 
+} else {
+    return 0;
+}
+
+-- brak procedur oraz void, tylko funkcje
+
+-- tablice jednowymiarowe indeksowane int 
+    -> wymóg określenia rozmiaru przy deklaracji, np.
+    int[10] arr;
+    arr[0] = arr[3] + 5 ;
+
+-- pętla "for i in range (<Expr>)" z i jako zmienna "read only"
+
+przykładowy program:
+
+int[] sum (int[] a, int[] b, int[] res) {
+  int i = 0;
+
+  while (i < 10) {
+    res[i] = a[i] + b[i];
+    i++;
+  }
+  return res;
+}
+
+przykładowy program ilustrujący pętlę for:
+
+int func (int x) {
+  int z = x;
+  for i in range (10) {
+    z++;
+  }
+  return z;
+}
+
