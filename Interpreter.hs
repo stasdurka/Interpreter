@@ -148,6 +148,18 @@ getStrVal v = case v of
     (StrVal s) -> return s
     _ -> throwError "String value expected"
 
+getArrEl :: Integer -> Integer -> RSE Integer
+getArrEl idx size = do
+    if (i >= size) then throwError ("array element out of bounds")
+
+    else do
+            -- if arr_size <= i
+    --     then throwError ("array element out of bounds: "++name++"["++show l++"]")
+    --     else do
+    --     v <- evalMaybe ("array element out of bounds: "++name) (M.lookup (l+i) state)
+    --     return (IntVal v)
+        
+
 evalExp :: Expr -> RSE Val
 
 evalExp (Elval (EVar (Ident name))) = do
@@ -157,19 +169,29 @@ evalExp (Elval (EVar (Ident name))) = do
     v <- evalMaybe ("variable not initialized: "++name) $ M.lookup l state   -- returns value if found
     return v
 evalExp (Elval (EArrEl (Ident name) expr)) = do
-    env <- ask
-    state <- get
-    -- index <- evalExp expr
-    -- i <- getIntVal index
-    l <- evalMaybe ("undefined array reference: "++ name) (M.lookup name env)
-    --array points to the location of its size, next loc is 1st element
-    arr_size <- evalMaybe ("unexpected error") $ M.lookup l state
+    loc <- findVar name
+    v <- findVal loc
+    size <- getIntVal v
+
+    iv <- evalExp expr
+    i <- getIntVal iv
+
+    if (i >= size)
+        then throwError 
+    -- env <- ask
+    -- state <- get
+    -- -- index <- evalExp expr
+    -- -- i <- getIntVal index
+    -- l <- evalMaybe ("undefined array reference: "++ name) (M.lookup name env)
+    -- --array points to the location of its size, next loc is 1st element
+    -- arr_size <- evalMaybe ("unexpected error") $ M.lookup l state
     -- if arr_size <= i
     --     then throwError ("array element out of bounds: "++name++"["++show l++"]")
     --     else do
     --     v <- evalMaybe ("array element out of bounds: "++name) (M.lookup (l+i) state)
     --     return (IntVal v)
-    return (IntVal 0) -- TODO usuń
+
+    -- return (IntVal 3) -- TODO usuń
 evalExp (ELitInt n) = return $ IntVal n
 evalExp ELitFalse = return $ BoolVal False
 evalExp ELitTrue = return $ BoolVal True
@@ -246,12 +268,24 @@ interpret (Ass (EArrEl (Ident name) index_exp) val_exp) = do
     ival <- evalExp index_exp
     i <- getIntVal ival
     if (i >= size)
-        then throwError ("index "++ show i ++" out of bounds for array "++name)
+        then throwError ("index "++ show i ++" out of bounds for array '"++name ++"' of size " ++ show size)
         else do
             val <- evalExp val_exp
-            modify (M.insert l val)
+            modify (M.insert (l+i+1) val)
 
--- interpret (Incr (EArrEl id i) e) = do
+-- interpret (Incr (EArrEl (Ident name) e)) = do
+--     l <- findVar name
+--     sizeval <- findVal l
+--     size <- getIntVal sizeval
+--     arr_el_val <- findVal (l+i+1)
+--     iv <- evalExp e   -- index
+--     i <- getIntVal iv
+--     if i >= size
+--         then throwError ("index "++ show i ++" out of bounds for array "++name)
+--         else do
+--             -- modify (M.insert (l+i))
+--             return ()
+
     
 
 interpret (Seq s1 s2) = do {interpret s1; interpret s2}
@@ -312,6 +346,7 @@ interpret (BStmt (Block ((Decl t item):ds) s)) =
             l <- newloc'
             modify (M.insert l v)    -- arr[0] = size (paradoksalnie:))
             newZerosArr arr_size
+            local (M.insert x l) (interpret (BStmt (Block ds s)))
             where   -- initializes array of zeros of size n
                 newZerosArr :: Integer -> RSE ()
                 newZerosArr 0 = return ()
@@ -379,7 +414,7 @@ b1 = BStmt $
     )
 
 
-b = Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Seq (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))) (Ass (EArrEl (Ident "arr") (ELitInt 0)) (ELitInt 5))))
+b = Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Seq (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))) (Ass (EArrEl (Ident "arr") (ELitInt 1)) (ELitInt 5))))
 
 -- let p1 = Program [FnDef Int (Ident "main") [] (Block [Decl Int (NoInit (Ident "x"))] (Seq (Ass (EVar (Ident "x")) (ELitInt 1)) (Seq (Incr (EVar (Ident "x"))) (Ret (Elval (EVar (Ident "x")))))))]
 b' = Block [Decl Int (NoInit (Ident "z")), Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))))
