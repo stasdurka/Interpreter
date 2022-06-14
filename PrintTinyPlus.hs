@@ -167,6 +167,7 @@ instance Print [AbsTinyPlus.Arg] where
 instance Print AbsTinyPlus.Block where
   prt i = \case
     AbsTinyPlus.Block decls stmt -> prPrec i 0 (concatD [doc (showString "["), prt 0 decls, doc (showString "]"), doc (showString "{"), prt 0 stmt, doc (showString "}")])
+    AbsTinyPlus.NoDecl stmt -> prPrec i 0 (concatD [doc (showString "{"), prt 0 stmt, doc (showString "}")])
 
 instance Print AbsTinyPlus.Decl where
   prt i = \case

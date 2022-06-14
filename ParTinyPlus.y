@@ -101,7 +101,9 @@ ListArg
   | Arg ',' ListArg { (:) $1 $3 }
 
 Block :: { AbsTinyPlus.Block }
-Block : '[' ListDecl ']' '{' Stmt '}' { AbsTinyPlus.Block $2 $5 }
+Block
+  : '[' ListDecl ']' '{' Stmt '}' { AbsTinyPlus.Block $2 $5 }
+  | '{' Stmt '}' { AbsTinyPlus.NoDecl $2 }
 
 Decl :: { AbsTinyPlus.Decl }
 Decl : Type Item { AbsTinyPlus.Decl $1 $2 }

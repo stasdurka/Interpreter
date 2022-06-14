@@ -36,6 +36,7 @@ transArg x = case x of
 transBlock :: AbsTinyPlus.Block -> Result
 transBlock x = case x of
   AbsTinyPlus.Block decls stmt -> failure x
+  AbsTinyPlus.NoDecl stmt -> failure x
 
 transDecl :: AbsTinyPlus.Decl -> Result
 transDecl x = case x of

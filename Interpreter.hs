@@ -27,7 +27,7 @@ type FuncDef = (Block, [String])    -- [Val] == arg names
 
 
 
-data Val = IntVal Integer | BoolVal Bool | StrVal String | FunVal FuncDef
+data Val = IntVal Integer | BoolVal Bool | StrVal String | FunVal  (Block, [String]) --FuncDef
     deriving Show
 
 evalRelOp GTH e1 e2 = e1 > e2
@@ -96,7 +96,7 @@ getStrVal :: Val -> RSEIO String
 getStrVal v = case v of
     (StrVal s) -> return s
     _ -> throwError "String value expected"
-getFnVal :: Val -> RSEIO FuncDef
+getFnVal :: Val -> RSEIO (Block, [String]) -- FuncDef
 getFnVal v = case v of
     FunVal f -> return f
     _ -> throwError "Function definition expected"
@@ -132,7 +132,6 @@ evalExp (EApp (Ident name) argvalues) = do
     f_def_v <- findVal loc
     -- type FuncDef = (Block, [String])    -- [Val] == arg names
     (block, argnames) <- getFnVal f_def_v
-
     v <- evalF block argnames argvalues
     return v
     where
@@ -311,6 +310,7 @@ interpret (For (Ident i) exp block) = do
                         Nothing -> interpFor (i+1) range bstmt
                         Just n -> return $ Just n
 
+interpret (BStmt (NoDecl s)) = interpret s
 interpret (BStmt (Block [] s)) =  interpret s
 interpret (BStmt (Block ((Decl t item):ds) s)) =
     case item of
@@ -353,6 +353,7 @@ interpretBlock b = interpret $ BStmt b
 interpretProgram :: Program -> RSEIO Integer
 interpretProgram (Program ((FnDef t (Ident fname) args block):fns) b) = do
     l <- newloc'
+    modify (M.insert l newFunc)
     local (M.insert fname l) (interpretProgram (Program fns b))
     where
         newFunc = FunVal (block, argnames)

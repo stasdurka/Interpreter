@@ -54,14 +54,15 @@ import LexTinyPlus
   'in'      { PT _ (TS _ 29) }
   'int'     { PT _ (TS _ 30) }
   'main'    { PT _ (TS _ 31) }
-  'range'   { PT _ (TS _ 32) }
-  'return'  { PT _ (TS _ 33) }
-  'string'  { PT _ (TS _ 34) }
-  'true'    { PT _ (TS _ 35) }
-  'while'   { PT _ (TS _ 36) }
-  '{'       { PT _ (TS _ 37) }
-  '||'      { PT _ (TS _ 38) }
-  '}'       { PT _ (TS _ 39) }
+  'print'   { PT _ (TS _ 32) }
+  'range'   { PT _ (TS _ 33) }
+  'return'  { PT _ (TS _ 34) }
+  'string'  { PT _ (TS _ 35) }
+  'true'    { PT _ (TS _ 36) }
+  'while'   { PT _ (TS _ 37) }
+  '{'       { PT _ (TS _ 38) }
+  '||'      { PT _ (TS _ 39) }
+  '}'       { PT _ (TS _ 40) }
   L_Ident   { PT _ (TV $$)   }
   L_integ   { PT _ (TI $$)   }
   L_quoted  { PT _ (TL $$)   }
@@ -127,6 +128,7 @@ Stmt
   | 'if' '(' Expr ')' Block 'else' Block { AbsTinyPlus.CondElse $3 $5 $7 }
   | 'while' '(' Expr ')' Block { AbsTinyPlus.While $3 $5 }
   | 'for' Ident 'in' 'range' '(' Expr ')' Block { AbsTinyPlus.For $2 $6 $8 }
+  | 'print' Expr ';' { AbsTinyPlus.Print $2 }
 
 Type :: { AbsTinyPlus.Type }
 Type

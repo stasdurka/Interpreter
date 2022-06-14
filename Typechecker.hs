@@ -71,6 +71,7 @@ typeOf (EApp (Ident fname) args) = do         -- function application
     t <- asks (Map.lookup fname)              -- types that each arg should have
     case t of
         Nothing -> throwError ("function "++fname++" not declared")
+        -- Nothing -> return (T Int) -- TODO debug!!!!!!!!!!!
         Just (TFunc argTypes) -> checkArgs fname argTypes args
         _ -> throwError (fname++" is not a function") 
         where 
@@ -133,11 +134,23 @@ typeOf (EOr exp1 exp2) = do
 -- returns a list of types of the parameters
 -- assures it returns an Int
 checkFunction :: TopDef -> RE ()
-checkFunction (FnDef t name [] b) = checkBlock b    
-checkFunction (FnDef t name (args@(Arg t' (Ident argname)):as) b) = do
-    compareTypes (T t) (T Int)      -- throws error
-    local (Map.insert argname (T t)) (checkFunction (FnDef t name as b))
-    return ()
+checkFunction (FnDef t name@(Ident f) [] b) = 
+    -- local (Map.insert f (TFunc Int)) (checkBlock b)
+    checkBlock b
+
+checkFunction def@(FnDef t (Ident fname) args b) =
+    local (Map.insert fname (TFunc argTypes))(checkFunction' def)
+    where
+        argTypes = fmap argType args
+        argType :: Arg -> TType
+        argType (Arg t id) = T t
+        argType (ArrRef t id) = TArr
+        argType (VarRef t id) = T t
+        checkFunction' :: TopDef -> RE ()
+        checkFunction' (FnDef t name (args@(Arg t' (Ident argname)):as) b) = do
+            compareTypes (T t) (T Int)      -- throws error
+            local (Map.insert argname (T t)) (checkFunction' (FnDef t name as b))
+            return ()
 
 checkProgram :: Program -> RE ()
 checkProgram (Program [] main) = checkBlock main
@@ -153,8 +166,8 @@ checkProgram (Program (f@(FnDef t (Ident name) args b):fs) mainBlock) = do
             in TFunc (fmap toType args)
 
 checkBlock :: Block -> RE ()
-checkBlock (Block [] stmt) = do
-    checkStmt stmt
+checkBlock  (NoDecl stmt) = checkStmt stmt
+checkBlock (Block [] stmt) = checkStmt stmt
 checkBlock (Block ((Decl t item):ds) stmt) = do
     case item of
         NoInit (Ident name) -> local (Map.insert name t') (checkBlock (Block ds stmt))
@@ -177,7 +190,7 @@ checkBlock (Block ((Decl t item):ds) stmt) = do
 
 checkStmt :: Stmt -> RE ()
 checkStmt Empty = return ()
--- checkStmt (BStmt b) = checkBlock b
+checkStmt (BStmt b) = checkBlock b
 checkStmt (Seq s1 s2) = do
     checkStmt s1
     checkStmt s2

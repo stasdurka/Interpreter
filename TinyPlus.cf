@@ -22,7 +22,7 @@ separator  Arg "," ;
 
 Block.        Block ::= "[" [Decl] "]" "{"  Stmt "}" ;
 
--- BlockNoDecl.  Block ::= "{" Stmt "}"
+NoDecl.  Block ::= "{" Stmt "}" ;
 
 Decl.      Decl ::= Type Item ;
 
