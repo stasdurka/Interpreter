@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use isNothing" #-}
 {-# HLINT ignore "Redundant return" #-}
+module Typechecker where
 import qualified Data.Map as Map
 import Data.Maybe(fromJust)
 import Control.Monad.Reader
@@ -84,9 +85,6 @@ typeOf (EApp (Ident fname) args) = do         -- function application
                 ([],[]) -> return (T Int)
                 ([], e:es) -> throwError ("function "++ fname ++": too many arguments given")
                 (t:ts, []) -> throwError ("function "++ fname ++": too few arguments given")
-
-
-
 
 
 typeOf (EString _) = return (T Str)
@@ -218,6 +216,10 @@ checkStmt (While expr b) = do
 checkStmt (For ident expr b) = do           -- for i in range ...
     checkType expr (T Int)
     checkBlock b
+checkStmt (Print expr) = do
+    t <- typeOf expr
+    return ()
+    
 
 
 -- always returns TInt if the arguments match their expected types,
@@ -256,7 +258,7 @@ ex100 = runTypeOf Map.empty (checkProgram prog100)
 prog101 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "c"))] (Seq (Ass (EVar (Ident "z")) (ELitInt 5)) (Ret (ELitInt 1))))
 ex101 = runTypeOf Map.empty (checkProgram prog101)
 
-prog000 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z"))] (Ass (EVar (Ident "x")) (ELitInt 2)))
-exxx = runTypeOf Map.empty (checkProgram prog101)
+prog000 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 2)))
+exxx = runTypeOf Map.empty (checkProgram prog000)
 
 test0 = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Ass (EArrEl (Ident "arr") (ELitInt 0)) (ELitInt 100)))

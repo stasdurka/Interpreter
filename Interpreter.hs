@@ -30,31 +30,6 @@ type FuncDef = (Block, [String])    -- [Val] == arg names
 data Val = IntVal Integer | BoolVal Bool | StrVal String | FunVal FuncDef
     deriving Show
 
--- Env -> Store -> Either String (a, Store)
-{-
-
-ReaderT r m a  ===   r -> m a
-StateT s m a   ===   s -> m (a,s)
-ExceptT e m a  ===   (m (Either e a))
-
-a => Either String a
-a => Store -> Either String (a, Store)
-a => Env -> Store -> Either String (a, Store)
-
-----
-
-type ERS a = ExceptT String (ReaderT Env (StateT Store Identity)) a
-
-ExceptT e m a  ===   (m (Either e a))
-ReaderT r m a  ===   r -> m a
-StateT s m a   ===   s -> m (a,s)
-
-a => Store -> (a, Store)
-a => Env -> Store -> (a, Store)
-a => Env -> Store -> (Either String a, Store)
-
-
--}
 evalRelOp GTH e1 e2 = e1 > e2
 evalRelOp GE e1 e2 = e1 >= e2
 evalRelOp LTH e1 e2 = e1 < e2
@@ -109,8 +84,6 @@ evalMaybe :: String -> Maybe a -> RSEIO a
 evalMaybe s Nothing = throwError s
 evalMaybe s (Just a) = return a
 
-
-
 getIntVal :: Val -> RSEIO Integer
 getIntVal v = case v of
     (IntVal i) -> return i
@@ -123,22 +96,10 @@ getStrVal :: Val -> RSEIO String
 getStrVal v = case v of
     (StrVal s) -> return s
     _ -> throwError "String value expected"
---type FuncDef = (Block, [String])
 getFnVal :: Val -> RSEIO FuncDef
 getFnVal v = case v of
     FunVal f -> return f
     _ -> throwError "Function definition expected"
-
--- getArrEl :: Integer -> Integer -> RSEIO Integer
--- getArrEl idx size = do
---     if (i >= size) then throwError ("array element out of bounds")
-
---     else do
---             -- if arr_size <= i
---     --     then throwError ("array element out of bounds: "++name++"["++show l++"]")
---     --     else do
---     --     v <- evalMaybe ("array element out of bounds: "++name) (M.lookup (l+i) state)
---     --     return (IntVal v)
         
 
 evalExp :: Expr -> RSEIO Val
@@ -163,21 +124,6 @@ evalExp (Elval (EArrEl (Ident name) expr)) = do
         el <- findVal (loc + i + 1)
         return el
      
-    
-    -- env <- ask
-    -- state <- get
-    -- -- index <- evalExp expr
-    -- -- i <- getIntVal index
-    -- l <- evalMaybe ("undefined array reference: "++ name) (M.lookup name env)
-    -- --array points to the location of its size, next loc is 1st element
-    -- arr_size <- evalMaybe ("unexpected error") $ M.lookup l state
-    -- if arr_size <= i
-    --     then throwError ("array element out of bounds: "++name++"["++show l++"]")
-    --     else do
-    --     v <- evalMaybe ("array element out of bounds: "++name) (M.lookup (l+i) state)
-    --     return (IntVal v)
-
-    -- return (IntVal 3) -- TODO usuń
 evalExp (ELitInt n) = return $ IntVal n
 evalExp ELitFalse = return $ BoolVal False
 evalExp ELitTrue = return $ BoolVal True
@@ -299,8 +245,6 @@ interpret (Incr (EArrEl (Ident name) e)) = do
 interpret (Decr (EArrEl (Ident name) e)) = do
     return Nothing   -- TODO
 
-    
-
 interpret (Seq s1 s2) = do 
     ret1 <- interpret s1
     case ret1 of
@@ -353,7 +297,7 @@ interpret (For (Ident i) exp block) = do
     range' <- evalExp exp
     range <- getIntVal range'
     if range > 0 then
-        throwError "range can't be negative in for loop"
+        throwError "range can't be negative in a 'for' loop"
     else do
         let i = 0
         interpFor i range (BStmt block)
@@ -403,15 +347,8 @@ interpret (Print e) = do
             BoolVal b -> show b
             StrVal str -> show str
 
--- type RSEIO a = ReaderT Env (StateT Store (ExceptT String IO)) a
--- Env -> Store -> Either String (a, Store)
-
 interpretBlock :: Block -> RSEIO (Maybe Integer)
 interpretBlock b = interpret $ BStmt b
-
-
--- type FuncDef = (Stmt, [(String, Val)])    -- [Val] == args
--- FunVal = ... | FunVal FuncDef
 
 interpretProgram :: Program -> RSEIO Integer
 interpretProgram (Program ((FnDef t (Ident fname) args block):fns) b) = do
@@ -429,15 +366,6 @@ interpretProgram (Program [] b_main) = do
         Just n -> return n
         Nothing -> return 0
 
-interpretProgram' :: Program -> RSEIO ()
-interpretProgram' p = do    
-    ret <- interpretProgram p
-    liftIO $ putStrLn $ "function main returned "++ show ret
--- interpretCatch :: Program -> RSEIO ()
---     interpretCatch p = do
---         ret <- interpretProgram p
-
-
 execStmt :: Stmt -> IO (Either String Store)
 execStmt s = 
     --   runExcept $ execStateT (runReaderT (interpretCatch s) M.empty) M.empty
@@ -447,29 +375,12 @@ execProgram :: Program -> IO (Either String Store)
 execProgram p =
     runExceptT $ execStateT (runReaderT (interpretProgram p) M.empty) M.empty
 
--- execProgram' :: Program -> IO ()
--- execProgram' p =
---     print $ runExceptT $ execStateT (runReaderT (interpretProgram' p) M.empty) M.empty
--- runInterpret :: Program -> 
-
--- interpretCatch :: Stmt -> RSE ()
--- interpretCatch s = do
---   interpret s `catchError` (\e -> return e) --(\e -> modify (M.insert 17 (StrVal e)))
-
--- execProgram :: Program -> IO ()
--- execProgram p =
---   print $
---       runExcept $ execStateT (runReaderT  (interpretCatch p) M.empty) M.empty
-
-
-
---
--- Run the interpreter
---
-
--- main = print $ evalState (runReaderT (eval testE) M.empty) M.empty 
-
--- [] (Block [Decl Int (NoInit (Ident "x"))] (Seq (Ass (EVar (Ident "x")) (ELitInt 1)) (Seq (Incr (EVar (Ident "x"))) (Ret (Elval (EVar (Ident "x")))))))]
+exec :: Program -> IO String
+exec p = do
+    ret <- execProgram p
+    case ret of
+        Left err -> return $ "runtime error: " ++ err
+        Right s -> return $ "main executed successfully"
 
 b1 = BStmt $
     Block 

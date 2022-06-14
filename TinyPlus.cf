@@ -20,8 +20,9 @@ separator  Arg "," ;
 
 -- statements ----------------------------------------------
 
--- Block.     Block ::= "[" [Decl] "]" "{"  [Stmt] "}" ;
-Block.     Block ::= "[" [Decl] "]" "{"  Stmt "}" ;
+Block.        Block ::= "[" [Decl] "]" "{"  Stmt "}" ;
+
+-- BlockNoDecl.  Block ::= "{" Stmt "}"
 
 Decl.      Decl ::= Type Item ;
 
