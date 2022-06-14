@@ -2,53 +2,26 @@
 {-# HLINT ignore "Redundant ==" #-}
 {-# HLINT ignore "Redundant return" #-}
 {-# HLINT ignore "Use when" #-}
--- {-# LANGUAGE TypeApplications #-}
+
+module Interpreter where
 import qualified Data.Map as M
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Except
 import Control.Monad.Identity
 
-import Data.Maybe(fromMaybe)
+-- import Data.Maybe(fromMaybe)
 -- import Data.Either(fromRight)
-import Control.Monad (foldM)
-import AbsMojeLatte
-
---
--- A syntax tree type for simple math, with variables
---
--- data Exp = IntE Int
---          | OpE  Op Exp Exp
---          | VarE String
---          | LetE String Exp Exp 
-
--- data Decl = VarD String Exp -- var x=e
-
--- data Stmt = S               -- skip
---         | AS String Exp     -- x:= e
---         | SeqS Stmt Stmt    -- S1; S2
---         | IfS Exp Stmt Stmt -- if b then S1 else S2 
---         | WhileS Exp Stmt   -- while b do S
---         | Block [Decl] Stmt -- begin [D] S end
-
-
--- type Op = Int -> Int -> Int
+-- import Control.Monad (foldM)
+import AbsTinyPlus
 
 type Loc = Integer
 
--- type VEnv = M.Map String Loc
--- type FEnv = M.Map Ident [Ident]     -- fname -> [arg_names]
--- type Env = (VEnv, FEnv)
-
--- getVenv :: RSE a -> Env
--- getVenv = do
---     env <- ask
---     return $ fst env
 type Env = M.Map String Loc
 
 type Store = M.Map Loc Val
 
-type RSE a = ReaderT Env (StateT Store (ExceptT String Identity)) a
+type RSEIO a = ReaderT Env (StateT Store (ExceptT String IO)) a
 
 type FuncDef = (Block, [String])    -- [Val] == arg names
 
@@ -100,7 +73,7 @@ newloc :: Store -> Loc
 newloc m = if (M.null m) then 0 
           else let (i, w) = M.findMax m in i+1  
 
-newloc' :: RSE Loc
+newloc' :: RSEIO Loc
 newloc' = do 
   m <- get 
   if (M.null m) then return 0 
@@ -117,7 +90,7 @@ newloc' = do
 --
 
 -- Reader (env)
-findVar :: String -> RSE Loc
+findVar :: String -> RSEIO Loc
 findVar name = do
     mt <- asks (M.lookup name)
     case mt of
@@ -125,38 +98,38 @@ findVar name = do
         Nothing -> throwError ("undefined variable: "++name)
 
 -- State (store)
-findVal :: Loc -> RSE Val
+findVal :: Loc -> RSEIO Val
 findVal loc = do
     mv <- gets (M.lookup loc)
     case mv of
         Just v -> return v
         Nothing -> throwError "access to uninitialized location"
 
-evalMaybe :: String -> Maybe a -> RSE a
+evalMaybe :: String -> Maybe a -> RSEIO a
 evalMaybe s Nothing = throwError s
 evalMaybe s (Just a) = return a
 
 
 
-getIntVal :: Val -> RSE Integer
+getIntVal :: Val -> RSEIO Integer
 getIntVal v = case v of
     (IntVal i) -> return i
     _ -> throwError "Integer value expected" 
-getBoolVal :: Val -> RSE Bool
+getBoolVal :: Val -> RSEIO Bool
 getBoolVal v = case v of
     (BoolVal b) -> return b
     _ -> throwError "Boolean value expected"
-getStrVal :: Val -> RSE String
+getStrVal :: Val -> RSEIO String
 getStrVal v = case v of
     (StrVal s) -> return s
     _ -> throwError "String value expected"
 --type FuncDef = (Block, [String])
-getFnVal :: Val -> RSE FuncDef
+getFnVal :: Val -> RSEIO FuncDef
 getFnVal v = case v of
     FunVal f -> return f
     _ -> throwError "Function definition expected"
 
--- getArrEl :: Integer -> Integer -> RSE Integer
+-- getArrEl :: Integer -> Integer -> RSEIO Integer
 -- getArrEl idx size = do
 --     if (i >= size) then throwError ("array element out of bounds")
 
@@ -168,7 +141,7 @@ getFnVal v = case v of
 --     --     return (IntVal v)
         
 
-evalExp :: Expr -> RSE Val
+evalExp :: Expr -> RSEIO Val
 
 evalExp (Elval (EVar (Ident name))) = do
     env <- ask
@@ -187,7 +160,7 @@ evalExp (Elval (EArrEl (Ident name) expr)) = do
     if i >= size
         then throwError ("index out of bounds for array " ++ name)
     else do
-        el <- findVal loc
+        el <- findVal (loc + i + 1)
         return el
      
     
@@ -217,7 +190,7 @@ evalExp (EApp (Ident name) argvalues) = do
     v <- evalF block argnames argvalues
     return v
     where
-        evalF :: Block -> [String] -> [Expr] -> RSE Val
+        evalF :: Block -> [String] -> [Expr] -> RSEIO Val
         evalF b (a:args) (e:exps) = do
             l <- newloc'
             val <- evalExp e
@@ -284,7 +257,7 @@ evalExp (EOr e1 e2) = do
 ---Exec statement
 ---
 
-interpret :: Stmt -> RSE (Maybe Integer)
+interpret :: Stmt -> RSEIO (Maybe Integer)
 
 interpret Empty = return Nothing
 
@@ -385,7 +358,7 @@ interpret (For (Ident i) exp block) = do
         let i = 0
         interpFor i range (BStmt block)
         where
-            interpFor :: Integer -> Integer -> Stmt -> RSE (Maybe Integer)
+            interpFor :: Integer -> Integer -> Stmt -> RSEIO (Maybe Integer)
             interpFor i range bstmt = do
                 if i == range then return Nothing
                 else do
@@ -413,28 +386,34 @@ interpret (BStmt (Block ((Decl t item):ds) s)) =
             newZerosArr arr_size
             local (M.insert x l) (interpret (BStmt (Block ds s)))
             where   -- initializes array of zeros of size n
-                newZerosArr :: Integer -> RSE ()
+                newZerosArr :: Integer -> RSEIO ()
                 newZerosArr 0 = return ()
                 newZerosArr n = do
                     l <- newloc'
                     modify (M.insert l (IntVal 0))
                     newZerosArr (n-1)
+interpret (Print e) = do
+    v <- evalExp e
+    liftIO $ putStrLn $ showVal v
+    return Nothing
+    where
+        showVal :: Val -> String
+        showVal v = case v of
+            IntVal n -> show n
+            BoolVal b -> show b
+            StrVal str -> show str
 
--- type RSE a = ReaderT Env (StateT Store (ExceptT String Identity)) a
-
+-- type RSEIO a = ReaderT Env (StateT Store (ExceptT String IO)) a
 -- Env -> Store -> Either String (a, Store)
 
-interpretBlock :: Block -> RSE (Maybe Integer)
+interpretBlock :: Block -> RSEIO (Maybe Integer)
 interpretBlock b = interpret $ BStmt b
-
--- interpretProgram :: Program -> RSE ()
-
 
 
 -- type FuncDef = (Stmt, [(String, Val)])    -- [Val] == args
 -- FunVal = ... | FunVal FuncDef
 
--- TODO:
+interpretProgram :: Program -> RSEIO Integer
 interpretProgram (Program ((FnDef t (Ident fname) args block):fns) b) = do
     l <- newloc'
     local (M.insert fname l) (interpretProgram (Program fns b))
@@ -443,15 +422,35 @@ interpretProgram (Program ((FnDef t (Ident fname) args block):fns) b) = do
         argnames = fmap getName args
         getName :: Arg -> String
         getName (Arg t (Ident name)) = name
+interpretProgram (Program [] b_main) = do
+    interpret (BStmt b_main)
+    ret <- interpret (BStmt b_main)
+    case ret of 
+        Just n -> return n
+        Nothing -> return 0
 
-interpretProgram (Program [] b) = do
-    interpret (BStmt b)
+interpretProgram' :: Program -> RSEIO ()
+interpretProgram' p = do    
+    ret <- interpretProgram p
+    liftIO $ putStrLn $ "function main returned "++ show ret
+-- interpretCatch :: Program -> RSEIO ()
+--     interpretCatch p = do
+--         ret <- interpretProgram p
 
-execStmt :: Stmt -> IO ()
-execStmt s =
-  print $
+
+execStmt :: Stmt -> IO (Either String Store)
+execStmt s = 
     --   runExcept $ execStateT (runReaderT (interpretCatch s) M.empty) M.empty
-    runExcept $ execStateT (runReaderT (interpret s) M.empty) M.empty
+    runExceptT $ execStateT (runReaderT (interpret s) M.empty) M.empty
+
+execProgram :: Program -> IO (Either String Store)
+execProgram p =
+    runExceptT $ execStateT (runReaderT (interpretProgram p) M.empty) M.empty
+
+-- execProgram' :: Program -> IO ()
+-- execProgram' p =
+--     print $ runExceptT $ execStateT (runReaderT (interpretProgram' p) M.empty) M.empty
+-- runInterpret :: Program -> 
 
 -- interpretCatch :: Stmt -> RSE ()
 -- interpretCatch s = do
@@ -489,3 +488,7 @@ b = Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitIn
 -- let p1 = Program [FnDef Int (Ident "main") [] (Block [Decl Int (NoInit (Ident "x"))] (Seq (Ass (EVar (Ident "x")) (ELitInt 1)) (Seq (Incr (EVar (Ident "x"))) (Ret (Elval (EVar (Ident "x")))))))]
 b' = Block [Decl Int (NoInit (Ident "z")), Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))))
 -- let p = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1))))))
+
+test_arr = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Seq (Ass (EArrEl (Ident "arr") (ELitInt 1)) (ELitInt 100)) (Print (EAdd (Elval (EArrEl (Ident "arr") (ELitInt 1))) Plus (ELitInt 1)))))
+test0 = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Ass (EArrEl (Ident "arr") (ELitInt 0)) (ELitInt 100)))
+bad = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z"))] (Ass (EVar (Ident "x")) (ELitInt 2)))

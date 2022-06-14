@@ -6,7 +6,7 @@ import Data.Maybe(fromJust)
 import Control.Monad.Reader
 import Control.Monad.Identity
 import Control.Monad.Except
-import AbsMojeLatte
+import AbsTinyPlus
 import Prelude
 
 type Env = Map.Map Name TType
@@ -27,6 +27,10 @@ data TType = T Type | TFunc [TType] | TArr  -- int arr[size:int]
 type RE a = ReaderT Env (ExceptT String Identity) a
 runTypeOf :: Env -> RE a -> Either String a
 runTypeOf env exp = runIdentity (runExceptT (runReaderT exp env)) 
+
+typecheck :: Program -> Either String ()
+typecheck p = runTypeOf Map.empty (checkProgram p)
+
 
 findVar :: Name -> RE TType
 findVar name = do
@@ -251,3 +255,8 @@ ex100 = runTypeOf Map.empty (checkProgram prog100)
 
 prog101 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "c"))] (Seq (Ass (EVar (Ident "z")) (ELitInt 5)) (Ret (ELitInt 1))))
 ex101 = runTypeOf Map.empty (checkProgram prog101)
+
+prog000 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z"))] (Ass (EVar (Ident "x")) (ELitInt 2)))
+exxx = runTypeOf Map.empty (checkProgram prog101)
+
+test0 = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Ass (EArrEl (Ident "arr") (ELitInt 0)) (ELitInt 100)))

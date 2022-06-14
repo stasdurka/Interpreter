@@ -1,0 +1,8 @@
+int f(int x) [int k = 0] {
+  x = x+1;
+  return x;
+}
+main [int z=2; int arr[5]] {
+  arr[1] = 100;
+  print arr[1]+1;
+}

@@ -1,7 +1,0 @@
-int mmain() {
-    int x, y;
-    int z;
-    x = 1;
-    y = x;
-    return yyy;
-}

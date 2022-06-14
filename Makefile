@@ -14,12 +14,12 @@ ALEX_OPTS  = --ghc
 
 # Default goal.
 
-all : TestMojeLatte
+all : TestTinyPlus
 
 # Rules for building the parser.
 
-AbsMojeLatte.hs LexMojeLatte.x ParMojeLatte.y PrintMojeLatte.hs TestMojeLatte.hs : mojeLatte.cf
-	bnfc --haskell mojeLatte.cf
+AbsTinyPlus.hs LexTinyPlus.x ParTinyPlus.y PrintTinyPlus.hs TestTinyPlus.hs : TinyPlus.cf
+	bnfc --haskell TinyPlus.cf
 
 %.hs : %.y
 	${HAPPY} ${HAPPY_OPTS} $<
@@ -27,7 +27,7 @@ AbsMojeLatte.hs LexMojeLatte.x ParMojeLatte.y PrintMojeLatte.hs TestMojeLatte.hs
 %.hs : %.x
 	${ALEX} ${ALEX_OPTS} $<
 
-TestMojeLatte : AbsMojeLatte.hs LexMojeLatte.hs ParMojeLatte.hs PrintMojeLatte.hs TestMojeLatte.hs
+TestTinyPlus : AbsTinyPlus.hs LexTinyPlus.hs ParTinyPlus.hs PrintTinyPlus.hs TestTinyPlus.hs
 	${GHC} ${GHC_OPTS} $@
 
 # Rules for cleaning generated files.
@@ -36,7 +36,7 @@ clean :
 	-rm -f *.hi *.o *.log *.aux *.dvi
 
 distclean : clean
-	-rm -f AbsMojeLatte.hs AbsMojeLatte.hs.bak ComposOp.hs ComposOp.hs.bak DocMojeLatte.txt DocMojeLatte.txt.bak ErrM.hs ErrM.hs.bak LayoutMojeLatte.hs LayoutMojeLatte.hs.bak LexMojeLatte.x LexMojeLatte.x.bak ParMojeLatte.y ParMojeLatte.y.bak PrintMojeLatte.hs PrintMojeLatte.hs.bak SkelMojeLatte.hs SkelMojeLatte.hs.bak TestMojeLatte.hs TestMojeLatte.hs.bak XMLMojeLatte.hs XMLMojeLatte.hs.bak ASTMojeLatte.agda ASTMojeLatte.agda.bak ParserMojeLatte.agda ParserMojeLatte.agda.bak IOLib.agda IOLib.agda.bak Main.agda Main.agda.bak mojeLatte.dtd mojeLatte.dtd.bak TestMojeLatte LexMojeLatte.hs ParMojeLatte.hs ParMojeLatte.info ParDataMojeLatte.hs Makefile
+	-rm -f AbsTinyPlus.hs AbsTinyPlus.hs.bak ComposOp.hs ComposOp.hs.bak DocTinyPlus.txt DocTinyPlus.txt.bak ErrM.hs ErrM.hs.bak LayoutTinyPlus.hs LayoutTinyPlus.hs.bak LexTinyPlus.x LexTinyPlus.x.bak ParTinyPlus.y ParTinyPlus.y.bak PrintTinyPlus.hs PrintTinyPlus.hs.bak SkelTinyPlus.hs SkelTinyPlus.hs.bak TestTinyPlus.hs TestTinyPlus.hs.bak XMLTinyPlus.hs XMLTinyPlus.hs.bak ASTTinyPlus.agda ASTTinyPlus.agda.bak ParserTinyPlus.agda ParserTinyPlus.agda.bak IOLib.agda IOLib.agda.bak Main.agda Main.agda.bak TinyPlus.dtd TinyPlus.dtd.bak TestTinyPlus LexTinyPlus.hs ParTinyPlus.hs ParTinyPlus.info ParDataTinyPlus.hs Makefile
 
 
 # EOF
