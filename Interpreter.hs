@@ -225,8 +225,10 @@ evalExp (EApp (Ident name) argvalues) = do
             local (M.insert a l) (evalF b args exps)
         evalF b [] [] = do
             v <- interpret (BStmt b)
-            return $ IntVal v
-        evalF _ _ _ = return $ IntVal 0 -- TODO return Nothing
+            case v of
+                Nothing -> throwError "function definition must include a return statement"
+                Just n -> return $ IntVal n
+        evalF _ _ _ = return $ IntVal (-1) -- przypadek jeśli len(args) /= len(exps), nie powinien się zdarzyć
 
 
 evalExp (EString str) = return $ StrVal str
@@ -282,16 +284,16 @@ evalExp (EOr e1 e2) = do
 ---Exec statement
 ---
 
-interpret :: Stmt -> RSE Integer
+interpret :: Stmt -> RSE (Maybe Integer)
 
-interpret Empty = return 0
+interpret Empty = return Nothing
 
 interpret (Ass (EVar (Ident name)) e) = do
     env <- ask
     l <- evalMaybe ("undefined variable: "++name) (M.lookup name env)
     val <- evalExp e 
     modify (M.insert l val)
-    return 0
+    return Nothing
 interpret (Ass (EArrEl (Ident name) index_exp) val_exp) = do
     env <- ask
     store <- get
@@ -305,10 +307,10 @@ interpret (Ass (EArrEl (Ident name) index_exp) val_exp) = do
         else do
             val <- evalExp val_exp
             modify (M.insert (l+i+1) val)
-    return 0
+    return Nothing
  
 interpret (Incr (EArrEl (Ident name) e)) = do
-    return 0   -- TODO
+    return Nothing   -- TODO
 --     l <- findVar name
 --     sizeval <- findVal l
 --     size <- getIntVal sizeval
@@ -322,11 +324,15 @@ interpret (Incr (EArrEl (Ident name) e)) = do
 --             return ()
 
 interpret (Decr (EArrEl (Ident name) e)) = do
-    return 0   -- TODO
+    return Nothing   -- TODO
 
     
 
-interpret (Seq s1 s2) = do {interpret s1; interpret s2}
+interpret (Seq s1 s2) = do 
+    ret1 <- interpret s1
+    case ret1 of
+        Nothing -> interpret s2
+        Just n -> return $ Just n
 
 interpret (Incr (EVar (Ident x))) = do
     env <- ask
@@ -335,7 +341,7 @@ interpret (Incr (EVar (Ident x))) = do
     vv <- evalMaybe ("variable not initialized: "++x) $ M.lookup l state   -- returns value if found
     val <- getIntVal vv
     modify $ M.insert l $ IntVal $ val+1
-    return 0
+    return Nothing
 
 interpret (Decr (EVar (Ident x))) = do
     env <- ask
@@ -345,20 +351,20 @@ interpret (Decr (EVar (Ident x))) = do
     vv <- evalMaybe ("variable not initialized: "++x) $ M.lookup l state   -- returns value if found
     val <- getIntVal vv
     modify $ M.insert l $ IntVal $ val-1
-    return 0
+    return Nothing
 
 interpret (Ret expr) = do
     v <- evalExp expr
     intv <- getIntVal v
     -- return v
-    return intv -- TODO return int zeby wyjsc z funkcji
+    return $ Just intv -- TODO return int zeby wyjsc z funkcji
 
 interpret (Cond e b1) = do 
     vv <- evalExp e
     cond <- getBoolVal vv
-    if cond == True then interpret (BStmt b1) else return 0
+    if cond == True then interpret (BStmt b1) else return Nothing
 
-interpret (CondElse e b1 b2) = do 
+interpret (CondElse e b1 b2) = do
 --   ~(BoolVal cond) <- evalExp e
     vv <- evalExp e
     cond <- getBoolVal vv
@@ -378,14 +384,15 @@ interpret (For (Ident i) exp block) = do
     else do
         let i = 0
         interpFor i range (BStmt block)
-        return 0
         where
-            interpFor :: Integer -> Integer -> Stmt -> RSE ()
+            interpFor :: Integer -> Integer -> Stmt -> RSE (Maybe Integer)
             interpFor i range bstmt = do
-                if i == range then return ()
+                if i == range then return Nothing
                 else do
-                    interpret bstmt
-                    interpFor (i+1) range bstmt
+                    ret <- interpret bstmt
+                    case ret of
+                        Nothing -> interpFor (i+1) range bstmt
+                        Just n -> return $ Just n
 
 interpret (BStmt (Block [] s)) =  interpret s
 interpret (BStmt (Block ((Decl t item):ds) s)) =
@@ -417,7 +424,7 @@ interpret (BStmt (Block ((Decl t item):ds) s)) =
 
 -- Env -> Store -> Either String (a, Store)
 
-interpretBlock :: Block -> RSE Integer
+interpretBlock :: Block -> RSE (Maybe Integer)
 interpretBlock b = interpret $ BStmt b
 
 -- interpretProgram :: Program -> RSE ()
