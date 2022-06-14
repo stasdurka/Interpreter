@@ -104,8 +104,8 @@ typeOf (EAdd exp1 op exp2) = do
     return (T Int)
 
 typeOf (ERel exp1 op exp2) = do
-    t1 <- checkType exp1 (T Bool)
-    t2 <- checkType exp2 (T Bool)
+    t1 <- checkType exp1 (T Int)
+    t2 <- checkType exp2 (T Int)
     return $ T Bool
 
 typeOf (EAnd exp1 exp2) = do

@@ -6,7 +6,8 @@ main [int z=2; int arr[5]] {
   arr[1] = 100;
   print arr[1];
   print "aaa";
-  while ((3 == 4)) [int k = 0] {
+  while ((z < 4)) [int k = 0] {
     z++;
+    print z;
   }
 }

@@ -179,8 +179,8 @@ evalExp (EAdd e1 op e2) = do
 evalExp (ERel e1 op e2) = do
     vv1 <- evalExp e1
     vv2 <- evalExp e2
-    v1 <- getBoolVal vv1
-    v2 <- getBoolVal vv2
+    v1 <- getIntVal vv1
+    v2 <- getIntVal vv2
     return $ BoolVal $ evalRelOp op v1 v2
 
 evalExp (EAnd e1 e2) = do
