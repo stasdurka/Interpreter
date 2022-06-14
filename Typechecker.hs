@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use isNothing" #-}
+{-# HLINT ignore "Redundant return" #-}
 import qualified Data.Map as Map
 import Data.Maybe(fromJust)
 import Control.Monad.Reader
@@ -54,6 +55,7 @@ typeOf (Elval (EArrEl (Ident name) expr)) = do
     findVar name
     t <- checkType expr (T Int)
     return t
+
 typeOf (Elval (EVar (Ident name))) = findVar name
 
 typeOf ELitTrue = return (T Bool)

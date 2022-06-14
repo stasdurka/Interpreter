@@ -2,6 +2,7 @@
 {-# HLINT ignore "Redundant ==" #-}
 {-# HLINT ignore "Redundant return" #-}
 {-# HLINT ignore "Use when" #-}
+-- {-# LANGUAGE TypeApplications #-}
 import qualified Data.Map as M
 import Control.Monad.Reader
 import Control.Monad.State
@@ -49,7 +50,7 @@ type Store = M.Map Loc Val
 
 type RSE a = ReaderT Env (StateT Store (ExceptT String Identity)) a
 
-type FuncDef = (Stmt, [String])    -- [Val] == arg names
+type FuncDef = (Block, [String])    -- [Val] == arg names
 
 
 
@@ -115,6 +116,7 @@ newloc' = do
 -- The interpreter
 --
 
+-- Reader (env)
 findVar :: String -> RSE Loc
 findVar name = do
     mt <- asks (M.lookup name)
@@ -122,6 +124,7 @@ findVar name = do
         Just l -> return l
         Nothing -> throwError ("undefined variable: "++name)
 
+-- State (store)
 findVal :: Loc -> RSE Val
 findVal loc = do
     mv <- gets (M.lookup loc)
@@ -147,17 +150,22 @@ getStrVal :: Val -> RSE String
 getStrVal v = case v of
     (StrVal s) -> return s
     _ -> throwError "String value expected"
+--type FuncDef = (Block, [String])
+getFnVal :: Val -> RSE FuncDef
+getFnVal v = case v of
+    FunVal f -> return f
+    _ -> throwError "Function definition expected"
 
-getArrEl :: Integer -> Integer -> RSE Integer
-getArrEl idx size = do
-    if (i >= size) then throwError ("array element out of bounds")
+-- getArrEl :: Integer -> Integer -> RSE Integer
+-- getArrEl idx size = do
+--     if (i >= size) then throwError ("array element out of bounds")
 
-    else do
-            -- if arr_size <= i
-    --     then throwError ("array element out of bounds: "++name++"["++show l++"]")
-    --     else do
-    --     v <- evalMaybe ("array element out of bounds: "++name) (M.lookup (l+i) state)
-    --     return (IntVal v)
+--     else do
+--             -- if arr_size <= i
+--     --     then throwError ("array element out of bounds: "++name++"["++show l++"]")
+--     --     else do
+--     --     v <- evalMaybe ("array element out of bounds: "++name) (M.lookup (l+i) state)
+--     --     return (IntVal v)
         
 
 evalExp :: Expr -> RSE Val
@@ -170,14 +178,19 @@ evalExp (Elval (EVar (Ident name))) = do
     return v
 evalExp (Elval (EArrEl (Ident name) expr)) = do
     loc <- findVar name
-    v <- findVal loc
-    size <- getIntVal v
+    size' <- findVal loc            -- arr[0] == size of the array
+    size <- getIntVal size'
 
     iv <- evalExp expr
     i <- getIntVal iv
 
-    if (i >= size)
-        then throwError 
+    if i >= size
+        then throwError ("index out of bounds for array " ++ name)
+    else do
+        el <- findVal loc
+        return el
+     
+    
     -- env <- ask
     -- state <- get
     -- -- index <- evalExp expr
@@ -195,9 +208,26 @@ evalExp (Elval (EArrEl (Ident name) expr)) = do
 evalExp (ELitInt n) = return $ IntVal n
 evalExp ELitFalse = return $ BoolVal False
 evalExp ELitTrue = return $ BoolVal True
--- evalExp EApp (Ident name) exp = do
---     env <- ask
---     state <- get
+evalExp (EApp (Ident name) argvalues) = do
+    loc <- findVar name     -- find the location where functions definition is stored
+    f_def_v <- findVal loc
+    -- type FuncDef = (Block, [String])    -- [Val] == arg names
+    (block, argnames) <- getFnVal f_def_v
+
+    v <- evalF block argnames argvalues
+    return v
+    where
+        evalF :: Block -> [String] -> [Expr] -> RSE Val
+        evalF b (a:args) (e:exps) = do
+            l <- newloc'
+            val <- evalExp e
+            modify (M.insert l val)
+            local (M.insert a l) (evalF b args exps)
+        evalF b [] [] = do
+            v <- interpret (BStmt b)
+            return $ IntVal v
+        evalF _ _ _ = return $ IntVal 0 -- TODO return Nothing
+
 
 evalExp (EString str) = return $ StrVal str
 evalExp (Neg e) = do
@@ -246,19 +276,22 @@ evalExp (EOr e1 e2) = do
     v2 <- getBoolVal vv2
     return $ BoolVal $ v1 || v2
 
+-- evalExp (EApp (Ident fname) exprs) = do
+--     return $ IntVal 0
 ---
 ---Exec statement
 ---
 
-interpret :: Stmt -> RSE ()  
+interpret :: Stmt -> RSE Integer
 
-interpret Empty = return ()
+interpret Empty = return 0
 
 interpret (Ass (EVar (Ident name)) e) = do
     env <- ask
     l <- evalMaybe ("undefined variable: "++name) (M.lookup name env)
     val <- evalExp e 
     modify (M.insert l val)
+    return 0
 interpret (Ass (EArrEl (Ident name) index_exp) val_exp) = do
     env <- ask
     store <- get
@@ -267,13 +300,15 @@ interpret (Ass (EArrEl (Ident name) index_exp) val_exp) = do
     size <- getIntVal sizeval
     ival <- evalExp index_exp
     i <- getIntVal ival
-    if (i >= size)
+    if i >= size
         then throwError ("index "++ show i ++" out of bounds for array '"++name ++"' of size " ++ show size)
         else do
             val <- evalExp val_exp
             modify (M.insert (l+i+1) val)
-
--- interpret (Incr (EArrEl (Ident name) e)) = do
+    return 0
+ 
+interpret (Incr (EArrEl (Ident name) e)) = do
+    return 0   -- TODO
 --     l <- findVar name
 --     sizeval <- findVal l
 --     size <- getIntVal sizeval
@@ -286,6 +321,9 @@ interpret (Ass (EArrEl (Ident name) index_exp) val_exp) = do
 --             -- modify (M.insert (l+i))
 --             return ()
 
+interpret (Decr (EArrEl (Ident name) e)) = do
+    return 0   -- TODO
+
     
 
 interpret (Seq s1 s2) = do {interpret s1; interpret s2}
@@ -297,6 +335,7 @@ interpret (Incr (EVar (Ident x))) = do
     vv <- evalMaybe ("variable not initialized: "++x) $ M.lookup l state   -- returns value if found
     val <- getIntVal vv
     modify $ M.insert l $ IntVal $ val+1
+    return 0
 
 interpret (Decr (EVar (Ident x))) = do
     env <- ask
@@ -306,16 +345,18 @@ interpret (Decr (EVar (Ident x))) = do
     vv <- evalMaybe ("variable not initialized: "++x) $ M.lookup l state   -- returns value if found
     val <- getIntVal vv
     modify $ M.insert l $ IntVal $ val-1
+    return 0
 
 interpret (Ret expr) = do
     v <- evalExp expr
+    intv <- getIntVal v
     -- return v
-    return () -- TODO return int zeby wyjsc z funkcji
+    return intv -- TODO return int zeby wyjsc z funkcji
 
 interpret (Cond e b1) = do 
     vv <- evalExp e
     cond <- getBoolVal vv
-    if cond == True then interpret (BStmt b1) else return ()
+    if cond == True then interpret (BStmt b1) else return 0
 
 interpret (CondElse e b1 b2) = do 
 --   ~(BoolVal cond) <- evalExp e
@@ -328,6 +369,23 @@ interpret (While e b) = do
     cond <- getBoolVal vv
     if cond == True then interpret (BStmt b) 
     else do {interpret (BStmt b); interpret (While e b)} 
+
+interpret (For (Ident i) exp block) = do
+    range' <- evalExp exp
+    range <- getIntVal range'
+    if range > 0 then
+        throwError "range can't be negative in for loop"
+    else do
+        let i = 0
+        interpFor i range (BStmt block)
+        return 0
+        where
+            interpFor :: Integer -> Integer -> Stmt -> RSE ()
+            interpFor i range bstmt = do
+                if i == range then return ()
+                else do
+                    interpret bstmt
+                    interpFor (i+1) range bstmt
 
 interpret (BStmt (Block [] s)) =  interpret s
 interpret (BStmt (Block ((Decl t item):ds) s)) =
@@ -359,7 +417,7 @@ interpret (BStmt (Block ((Decl t item):ds) s)) =
 
 -- Env -> Store -> Either String (a, Store)
 
-interpretBlock :: Block -> RSE ()
+interpretBlock :: Block -> RSE Integer
 interpretBlock b = interpret $ BStmt b
 
 -- interpretProgram :: Program -> RSE ()
@@ -368,14 +426,19 @@ interpretBlock b = interpret $ BStmt b
 
 -- type FuncDef = (Stmt, [(String, Val)])    -- [Val] == args
 -- FunVal = ... | FunVal FuncDef
+
+-- TODO:
 interpretProgram (Program ((FnDef t (Ident fname) args block):fns) b) = do
     l <- newloc'
     local (M.insert fname l) (interpretProgram (Program fns b))
     where
-        newFunc = FunVal (BStmt block, argnames)
+        newFunc = FunVal (block, argnames)
         argnames = fmap getName args
         getName :: Arg -> String
         getName (Arg t (Ident name)) = name
+
+interpretProgram (Program [] b) = do
+    interpret (BStmt b)
 
 execStmt :: Stmt -> IO ()
 execStmt s =
