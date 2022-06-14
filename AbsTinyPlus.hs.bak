@@ -19,7 +19,7 @@ data TopDef = FnDef Type Ident [Arg] Block
 data Arg = Arg Type Ident | ArrRef Type Ident | VarRef Type Ident
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Block = Block [Decl] Stmt
+data Block = Block [Decl] Stmt | NoDecl Stmt
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Decl = Decl Type Item
@@ -33,8 +33,6 @@ data Stmt
     | Empty
     | BStmt Block
     | Ass LValue Expr
-    | Incr LValue
-    | Decr LValue
     | Ret Expr
     | Cond Expr Block
     | CondElse Expr Block Block

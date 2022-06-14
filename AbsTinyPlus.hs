@@ -33,8 +33,7 @@ data Stmt
     | Empty
     | BStmt Block
     | Ass LValue Expr
-    | Incr LValue
-    | Decr LValue
+    | Func Expr
     | Ret Expr
     | Cond Expr Block
     | CondElse Expr Block Block

@@ -25,10 +25,11 @@ main = do
 --     msg <- calc s
 --     print $ msg
 
+interp :: String -> IO String
 interp s =
-    let Ok p = pProgram (myLexer s)
-    in
-        case typecheck p of
-            Right _ -> exec p
-            Left err -> return $ "compilation errror: "++ err
-    -- in execProgram e
+    let parseResult = pProgram (myLexer s)
+    in case parseResult of
+        Ok p -> case typecheck p of
+                Right _ -> exec p
+                Left err -> return $ "compilation errror: "++ err
+        _ -> return "parse error"

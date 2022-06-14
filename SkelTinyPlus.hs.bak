@@ -36,6 +36,7 @@ transArg x = case x of
 transBlock :: AbsTinyPlus.Block -> Result
 transBlock x = case x of
   AbsTinyPlus.Block decls stmt -> failure x
+  AbsTinyPlus.NoDecl stmt -> failure x
 
 transDecl :: AbsTinyPlus.Decl -> Result
 transDecl x = case x of
@@ -53,8 +54,6 @@ transStmt x = case x of
   AbsTinyPlus.Empty -> failure x
   AbsTinyPlus.BStmt block -> failure x
   AbsTinyPlus.Ass lvalue expr -> failure x
-  AbsTinyPlus.Incr lvalue -> failure x
-  AbsTinyPlus.Decr lvalue -> failure x
   AbsTinyPlus.Ret expr -> failure x
   AbsTinyPlus.Cond expr block -> failure x
   AbsTinyPlus.CondElse expr block1 block2 -> failure x

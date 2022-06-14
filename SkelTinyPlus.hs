@@ -54,8 +54,7 @@ transStmt x = case x of
   AbsTinyPlus.Empty -> failure x
   AbsTinyPlus.BStmt block -> failure x
   AbsTinyPlus.Ass lvalue expr -> failure x
-  AbsTinyPlus.Incr lvalue -> failure x
-  AbsTinyPlus.Decr lvalue -> failure x
+  AbsTinyPlus.Func expr -> failure x
   AbsTinyPlus.Ret expr -> failure x
   AbsTinyPlus.Cond expr block -> failure x
   AbsTinyPlus.CondElse expr block1 block2 -> failure x

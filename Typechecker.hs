@@ -13,17 +13,8 @@ import Prelude
 type Env = Map.Map Name TType
 type Name = String
 
--- data TType = TInt | TStr | TBool 
---             | TFunc [TType] -- funkcje z listy typów zawsze w TInt
---             -- lista [TType] to lista typów parametrów funkcji
---             -- | Arr Type Integer | Arr2 Type
---             deriving (Eq, Ord, Show, Read)
-
 data TType = T Type | TFunc [TType] | TArr  -- int arr[size:int]
             deriving (Eq, Ord, Show, Read)
-
--- data TType = Type |
---   deriving Eq
 
 type RE a = ReaderT Env (ExceptT String Identity) a
 runTypeOf :: Env -> RE a -> Either String a
@@ -133,37 +124,45 @@ typeOf (EOr exp1 exp2) = do
 -- checks function body and declaration and
 -- returns a list of types of the parameters
 -- assures it returns an Int
+
+argToType :: Arg -> TType
+argToType (Arg t id) = T t
+argToType (ArrRef t id) = TArr
+argToType (VarRef t id) = T t
+
+createFuncT :: [Arg] -> TType
+createFuncT args = 
+    let toType :: Arg -> TType
+        toType (Arg t id) = T t
+        toType (ArrRef t id) = TArr
+        toType (VarRef t id) = T t
+    in TFunc (fmap toType args)
+
 checkFunction :: TopDef -> RE ()
-checkFunction (FnDef t name@(Ident f) [] b) = 
-    -- local (Map.insert f (TFunc Int)) (checkBlock b)
-    checkBlock b
 
 checkFunction def@(FnDef t (Ident fname) args b) =
-    local (Map.insert fname (TFunc argTypes))(checkFunction' def)
+    local (Map.insert fname fType) (checkFunction' def)  -- umożliwia rekurencję
     where
-        argTypes = fmap argType args
-        argType :: Arg -> TType
-        argType (Arg t id) = T t
-        argType (ArrRef t id) = TArr
-        argType (VarRef t id) = T t
+        fType = createFuncT args
         checkFunction' :: TopDef -> RE ()
-        checkFunction' (FnDef t name (args@(Arg t' (Ident argname)):as) b) = do
-            compareTypes (T t) (T Int)      -- throws error
-            local (Map.insert argname (T t)) (checkFunction' (FnDef t name as b))
-            return ()
+        checkFunction' (FnDef t name@(Ident f) [] b) = checkBlock b
+        checkFunction' (FnDef t name args@(arg:as) b) = do
+            case arg of
+                Arg t' (Ident argname) -> do
+                    compareTypes (T t) (T Int)      -- throws error
+                    local (Map.insert argname (T t')) (checkFunction' (FnDef t name as b))
+                ArrRef t' (Ident argname) -> do
+                    local (Map.insert argname TArr) (checkFunction' (FnDef t name as b))
+                VarRef t' (Ident argname) -> do
+                    local (Map.insert argname (T t')) (checkFunction' (FnDef t name as b))
+
 
 checkProgram :: Program -> RE ()
 checkProgram (Program [] main) = checkBlock main
 checkProgram (Program (f@(FnDef t (Ident name) args b):fs) mainBlock) = do
     checkFunction f
-    let fType = createFuncT name args
+    let fType = createFuncT args
     local (Map.insert name fType) (checkProgram (Program fs mainBlock))
-    where
-        createFuncT :: Name -> [Arg] -> TType
-        createFuncT name args = 
-            let toType :: Arg -> TType
-                toType (Arg t id) = T t
-            in TFunc (fmap toType args)
 
 checkBlock :: Block -> RE ()
 checkBlock  (NoDecl stmt) = checkStmt stmt
@@ -190,6 +189,10 @@ checkBlock (Block ((Decl t item):ds) stmt) = do
 
 checkStmt :: Stmt -> RE ()
 checkStmt Empty = return ()
+checkStmt (Func expr) = 
+    case expr of
+        (EApp id exp) -> return ()
+        _ -> throwError "standalone expression must be a function application"
 checkStmt (BStmt b) = checkBlock b
 checkStmt (Seq s1 s2) = do
     checkStmt s1
@@ -205,14 +208,14 @@ checkStmt (Ass lval expr) =
             t1 <- findVar name
             t2 <- checkType expr (T Int)
             return ()
-checkStmt (Incr (EVar (Ident name))) = do
-    t <- findVar name
-    compareTypes t (T Int)
-    return ()
-checkStmt (Decr (EVar (Ident name))) = do
-    t <- findVar name
-    compareTypes t (T Int)
-    return ()
+-- checkStmt (Incr (EVar (Ident name))) = do
+--     t <- findVar name
+--     compareTypes t (T Int)
+--     return ()
+-- checkStmt (Decr (EVar (Ident name))) = do
+--     t <- findVar name
+--     compareTypes t (T Int)
+--     return ()
 checkStmt (Ret expr) = do
     checkType expr (T Int)
     return ()
@@ -249,29 +252,29 @@ checkStmt (Print expr) = do
 
 -- runTypeOf Map.empty (typeOf (EVar "a"))
 
-prog = Program [] bmain
-bmain = Block 
-    [Decl Int (NoInit (Ident "x"))] 
-    (Seq 
-        (Ass (EVar (Ident "x")) (ELitInt 1)) 
-        (Seq 
-            (Incr (EVar (Ident "y"))) 
-            (Ret (Elval (EVar (Ident "x"))))
-        )
-    )
+-- prog = Program [] bmain
+-- bmain = Block 
+--     [Decl Int (NoInit (Ident "x"))] 
+--     (Seq 
+--         (Ass (EVar (Ident "x")) (ELitInt 1)) 
+--         (Seq 
+--             (Incr (EVar (Ident "y"))) 
+--             (Ret (Elval (EVar (Ident "x"))))
+--         )
+--     )
 
-ex0 = runTypeOf Map.empty (typeOf (EOr (ELitInt 1) (ELitInt 2))) --wrong
-ex1 = runTypeOf Map.empty (typeOf (EAdd (ELitInt 1) Plus (ELitInt 2))) --good
+-- ex0 = runTypeOf Map.empty (typeOf (EOr (ELitInt 1) (ELitInt 2))) --wrong
+-- ex1 = runTypeOf Map.empty (typeOf (EAdd (ELitInt 1) Plus (ELitInt 2))) --good
 
-ex2 = runTypeOf Map.empty (checkProgram prog)   -- y not initialized
+-- ex2 = runTypeOf Map.empty (checkProgram prog)   -- y not initialized
 
-prog100 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [] (Seq (Ass (EVar (Ident "z")) (ELitInt 5)) (Ret (ELitInt 1))))
-ex100 = runTypeOf Map.empty (checkProgram prog100)
+-- prog100 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [] (Seq (Ass (EVar (Ident "z")) (ELitInt 5)) (Ret (ELitInt 1))))
+-- ex100 = runTypeOf Map.empty (checkProgram prog100)
 
-prog101 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "c"))] (Seq (Ass (EVar (Ident "z")) (ELitInt 5)) (Ret (ELitInt 1))))
-ex101 = runTypeOf Map.empty (checkProgram prog101)
+-- prog101 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "c"))] (Seq (Ass (EVar (Ident "z")) (ELitInt 5)) (Ret (ELitInt 1))))
+-- ex101 = runTypeOf Map.empty (checkProgram prog101)
 
-prog000 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 2)))
-exxx = runTypeOf Map.empty (checkProgram prog000)
+-- prog000 = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 2)))
+-- exxx = runTypeOf Map.empty (checkProgram prog000)
 
-test0 = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Ass (EArrEl (Ident "arr") (ELitInt 0)) (ELitInt 100)))
+-- test0 = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Ass (EArrEl (Ident "arr") (ELitInt 0)) (ELitInt 100)))

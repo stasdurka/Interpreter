@@ -1,0 +1,15 @@
+int f(int &z) {
+    z = 1;
+    return 0;
+}
+main [int arr[5]; int i] {
+    i = 0;
+    while (i < 5) {
+        #print "a";
+        arr[i] = i;
+        print arr[i];
+        i = i+1;
+        #print i;
+    }
+    print f(i);
+}

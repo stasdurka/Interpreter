@@ -15,7 +15,7 @@ main [int z=2; int x = 0; int arr[5]] {
   print arr[1];
   print "aaa";
   while (z < 4) {
-    z++;
+    z = z+1;
     [int k = 0]{z = 9999;}
   }
   print z;

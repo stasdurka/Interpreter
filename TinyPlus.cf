@@ -2,8 +2,6 @@
 
 entrypoints Program ;
 
--- Program.   Program ::= [TopDef] ;
-
 Program.   Program ::= [TopDef] "main" Block;
 
 FnDef.	   TopDef ::= Type Ident "(" [Arg] ")" Block ;
@@ -46,9 +44,11 @@ BStmt.     Stmt ::= Block ;
 
 Ass.       Stmt ::= LValue "=" Expr  ";" ;
 
-Incr.      Stmt ::= LValue "++"  ";" ;
+Func.       Stmt ::= Expr ";" ;
 
-Decr.      Stmt ::= LValue "--"  ";" ;
+-- Incr.      Stmt ::= LValue "++"  ";" ;
+
+-- Decr.      Stmt ::= LValue "--"  ";" ;
 
 Ret.       Stmt ::= "return" Expr ";" ;
 
@@ -71,8 +71,6 @@ Int.       Type ::= "int" ;
 Str.       Type ::= "string" ;
 
 Bool.      Type ::= "boolean" ;
-
--- Arr.      Type ::= Type "[" "]" ;
 
 separator  Type "," ;
 

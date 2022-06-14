@@ -14,6 +14,7 @@ import Control.Monad.Identity
 -- import Data.Either(fromRight)
 -- import Control.Monad (foldM)
 import AbsTinyPlus
+import Distribution.TestSuite (TestInstance(name))
 
 type Loc = Integer
 
@@ -24,8 +25,6 @@ type Store = M.Map Loc Val
 type RSEIO a = ReaderT Env (StateT Store (ExceptT String IO)) a
 
 type FuncDef = (Block, [String])    -- [Val] == arg names
-
-
 
 data Val = IntVal Integer | BoolVal Bool | StrVal String | FunVal  (Block, [String]) --FuncDef
     deriving Show
@@ -45,26 +44,16 @@ evalAddOp Minus e1 e2 = e1 - e2
 evalAddOp Plus e1 e2 = e1 + e2
 
 newloc :: Store -> Loc
-newloc m = if (M.null m) then 0 
+newloc m = if M.null m then 0 
           else let (i, w) = M.findMax m in i+1  
 
 newloc' :: RSEIO Loc
 newloc' = do 
   m <- get 
-  if (M.null m) then return 0 
+  if M.null m then return 0 
   else let (i, w) = M.findMax m in return (i+1) 
---  do
---    l1 <- newloc'
---    l2 <- newloc'
---    -- tutaj l1 == l2 (bo newloc' nie zapamiętuje w Store że l1 jest zajęte... :)
---    -- ale ponizej po każdym newloc' jest modify
 
 
---
--- The interpreter
---
-
--- Reader (env)
 findVar :: String -> RSEIO Loc
 findVar name = do
     mt <- asks (M.lookup name)
@@ -226,9 +215,11 @@ interpret (Ass (EArrEl (Ident name) index_exp) val_exp) = do
             val <- evalExp val_exp
             modify (M.insert (l+i+1) val)
     return Nothing
+
+-- interpret (Incr el) = interpret (Ass (el ))
  
-interpret (Incr (EArrEl (Ident name) e)) = do
-    return Nothing   -- TODO
+-- interpret (Incr (EArrEl id e)) = 
+--     return Nothing   -- TODO
 --     l <- findVar name
 --     sizeval <- findVal l
 --     size <- getIntVal sizeval
@@ -241,8 +232,8 @@ interpret (Incr (EArrEl (Ident name) e)) = do
 --             -- modify (M.insert (l+i))
 --             return ()
 
-interpret (Decr (EArrEl (Ident name) e)) = do
-    return Nothing   -- TODO
+-- interpret (Decr (EArrEl (Ident name) e)) = do
+--     return Nothing   -- TODO
 
 interpret (Seq s1 s2) = do 
     ret1 <- interpret s1
@@ -250,24 +241,24 @@ interpret (Seq s1 s2) = do
         Nothing -> interpret s2
         Just n -> return $ Just n
 
-interpret (Incr (EVar (Ident x))) = do
-    env <- ask
-    state <- get
-    l <- evalMaybe ("undefined variable: "++x) (M.lookup x env)
-    vv <- evalMaybe ("variable not initialized: "++x) $ M.lookup l state   -- returns value if found
-    val <- getIntVal vv
-    modify $ M.insert l $ IntVal $ val+1
-    return Nothing
+-- interpret (Incr (EVar (Ident x))) = do
+--     env <- ask
+--     state <- get
+--     l <- evalMaybe ("undefined variable: "++x) (M.lookup x env)
+--     vv <- evalMaybe ("variable not initialized: "++x) $ M.lookup l state   -- returns value if found
+--     val <- getIntVal vv
+--     modify $ M.insert l $ IntVal $ val+1
+--     return Nothing
 
-interpret (Decr (EVar (Ident x))) = do
-    env <- ask
-    state <- get
-    l <- evalMaybe ("undefined variable: "++x) (M.lookup x env)
-    -- ~(IntVal val) <- evalMaybe "variable not initialized" $ M.lookup l state   -- returns value if found
-    vv <- evalMaybe ("variable not initialized: "++x) $ M.lookup l state   -- returns value if found
-    val <- getIntVal vv
-    modify $ M.insert l $ IntVal $ val-1
-    return Nothing
+-- interpret (Decr (EVar (Ident x))) = do
+--     env <- ask
+--     state <- get
+--     l <- evalMaybe ("undefined variable: "++x) (M.lookup x env)
+--     -- ~(IntVal val) <- evalMaybe "variable not initialized" $ M.lookup l state   -- returns value if found
+--     vv <- evalMaybe ("variable not initialized: "++x) $ M.lookup l state   -- returns value if found
+--     val <- getIntVal vv
+--     modify $ M.insert l $ IntVal $ val-1
+--     return Nothing
 
 interpret (Ret expr) = do
     v <- evalExp expr
@@ -289,7 +280,7 @@ interpret (CondElse e b1 b2) = do
 interpret (While e b) = do 
     vv <- evalExp e
     cond <- getBoolVal vv
-    if cond == True then interpret (BStmt b) 
+    if cond == False then return Nothing
     else do {interpret (BStmt b); interpret (While e b)} 
 
 interpret (For (Ident i) exp block) = do
@@ -309,9 +300,13 @@ interpret (For (Ident i) exp block) = do
                     case ret of
                         Nothing -> interpFor (i+1) range bstmt
                         Just n -> return $ Just n
+interpret (Func e) = do
+    evalExp e
+    return Nothing
 
 interpret (BStmt (NoDecl s)) = interpret s
 interpret (BStmt (Block [] s)) =  interpret s
+
 interpret (BStmt (Block ((Decl t item):ds) s)) =
     case item of
         Init (Ident x) expr -> do
@@ -346,6 +341,7 @@ interpret (Print e) = do
             IntVal n -> show n
             BoolVal b -> show b
             StrVal str -> show str
+            FunVal f -> show f
 
 interpretBlock :: Block -> RSEIO (Maybe Integer)
 interpretBlock b = interpret $ BStmt b
@@ -360,12 +356,16 @@ interpretProgram (Program ((FnDef t (Ident fname) args block):fns) b) = do
         argnames = fmap getName args
         getName :: Arg -> String
         getName (Arg t (Ident name)) = name
+        getName (ArrRef t (Ident name)) = name
+        getName (VarRef t (Ident name)) = name
+
 interpretProgram (Program [] b_main) = do
     interpret (BStmt b_main)
     ret <- interpret (BStmt b_main)
     case ret of 
         Just n -> return n
         Nothing -> return 0
+
 
 execStmt :: Stmt -> IO (Either String Store)
 execStmt s = 
@@ -383,16 +383,16 @@ exec p = do
         Left err -> return $ "runtime error: " ++ err
         Right s -> return $ "main executed successfully"
 
-b1 = BStmt $
-    Block 
-    [Decl Int (NoInit (Ident "x"))] 
-    (Seq 
-        (Ass (EVar (Ident "x")) (ELitInt 1)) 
-        (Seq 
-            (Incr (EVar (Ident "y"))) 
-            (Ret (Elval (EVar (Ident "x"))))
-        )
-    )
+-- b1 = BStmt $
+--     Block 
+--     [Decl Int (NoInit (Ident "x"))] 
+--     (Seq 
+--         (Ass (EVar (Ident "x")) (ELitInt 1)) 
+--         (Seq 
+--             (Incr (EVar (Ident "y"))) 
+--             (Ret (Elval (EVar (Ident "x"))))
+--         )
+--     )
 
 
 b = Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Seq (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))) (Ass (EArrEl (Ident "arr") (ELitInt 1)) (ELitInt 5))))

@@ -38,11 +38,10 @@ The reserved words used in TinyPlus are the following:
 The symbols used in TinyPlus are the following:
   | ( | ) | [ | ]
   | & | , | { | }
-  | ; | = | ++ | --
-  | - | ! | && | ||
-  | + | * | / | %
-  | < | <= | > | >=
-  | == | != |  |
+  | ; | = | - | !
+  | && | || | + | *
+  | / | % | < | <=
+  | > | >= | == | !=
 
 ===Comments===
 Single-line comments begin with #, //.Multiple-line comments are  enclosed with /* and */.
@@ -64,6 +63,7 @@ All other symbols are terminals.
   |  |  **|**  | //Arg//
   |  |  **|**  | //Arg// ``,`` //[Arg]//
   | //Block// | -> | ``[`` //[Decl]// ``]`` ``{`` //Stmt// ``}``
+  |  |  **|**  | ``{`` //Stmt// ``}``
   | //Decl// | -> | //Type// //Item//
   | //Item// | -> | //Ident//
   |  |  **|**  | //Ident// ``=`` //Expr//
@@ -74,8 +74,7 @@ All other symbols are terminals.
   |  |  **|**  | ``;``
   |  |  **|**  | //Block//
   |  |  **|**  | //LValue// ``=`` //Expr// ``;``
-  |  |  **|**  | //LValue// ``++`` ``;``
-  |  |  **|**  | //LValue// ``--`` ``;``
+  |  |  **|**  | //Expr//
   |  |  **|**  | ``return`` //Expr// ``;``
   |  |  **|**  | ``if`` ``(`` //Expr// ``)`` //Block//
   |  |  **|**  | ``if`` ``(`` //Expr// ``)`` //Block// ``else`` //Block//
