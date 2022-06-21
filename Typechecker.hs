@@ -81,9 +81,9 @@ typeOf (EApp (Ident fname) args) = do         -- function application
 
 typeOf (EString _) = return (T Str)
 
-typeOf (Neg exp) = checkType exp (T Bool)
+typeOf (Neg exp) = checkType exp (T Int)
 
-typeOf (Not exp) = checkType exp (T Int)
+typeOf (Not exp) = checkType exp (T Bool)
 
 typeOf (EMul exp1 op exp2) = do
     t1 <- checkType exp1 (T Int)
@@ -110,21 +110,6 @@ typeOf (EOr exp1 exp2) = do
     t2 <- checkType exp2 (T Bool)
     return (T Bool)
 
--- checkTopDef :: TopDef -> RE ()
--- checkTopDef (FnDef t n args b) = do
-
--- checkProgram :: Program -> RE ()
--- checkProgram (Program ((FnDef t name args b):fs)) = do
---     local (Map.insert name (TFunc typesList)) (checkProgram (Program fs))
---     where
---         argToType :: Arg -> TType
---         argToType (Arg t (Ident name)) = T t
---         typesList = fmap argToType args
-
--- checks function body and declaration and
--- returns a list of types of the parameters
--- assures it returns an Int
-
 argToType :: Arg -> TType
 argToType (Arg t id) = T t
 argToType (ArrRef t id) = TArr
@@ -145,11 +130,13 @@ checkFunction def@(FnDef t (Ident fname) args b) =
     where
         fType = createFuncT args
         checkFunction' :: TopDef -> RE ()
-        checkFunction' (FnDef t name@(Ident f) [] b) = checkBlock b
+        checkFunction' (FnDef t name@(Ident f) [] b) = do
+            compareTypes (T t) (T Int)      -- throws error if not int
+            checkBlock b
         checkFunction' (FnDef t name args@(arg:as) b) = do
             case arg of
                 Arg t' (Ident argname) -> do
-                    compareTypes (T t) (T Int)      -- throws error
+                    -- compareTypes (T t) (T Int)      -- throws error
                     local (Map.insert argname (T t')) (checkFunction' (FnDef t name as b))
                 ArrRef t' (Ident argname) -> do
                     local (Map.insert argname TArr) (checkFunction' (FnDef t name as b))
@@ -158,6 +145,7 @@ checkFunction def@(FnDef t (Ident fname) args b) =
 
 
 checkProgram :: Program -> RE ()
+checkProgram (JustMain main) = checkBlock main
 checkProgram (Program [] main) = checkBlock main
 checkProgram (Program (f@(FnDef t (Ident name) args b):fs) mainBlock) = do
     checkFunction f
@@ -179,14 +167,6 @@ checkBlock (Block ((Decl t item):ds) stmt) = do
 
         where t' = T t
 
--- declare :: Decl -> RE ()
--- declare (Decl t (i:is)) = do
---     case i of
---         NoInit (Ident name) -> local (Map.insert name t) declare (Decl t is)
---         Init (Ident name) -> local (Map.insert name t) declare (Decl t is)
--- declare (Decl t [])
-
-
 checkStmt :: Stmt -> RE ()
 checkStmt Empty = return ()
 checkStmt (Func expr) = 
@@ -202,8 +182,10 @@ checkStmt (Ass lval expr) =
         EVar (Ident name) -> do
             t <- findVar name       -- throws error if var not initialized
             -- t <- asks (Map.lookup name)
-            t' <- checkType expr t-- throws error if t /= t'
-            return ()
+            if t == TArr then throwError "arrays cannot be copied explicitly"
+            else do
+                t' <- checkType expr t-- throws error if t /= t'
+                return ()
         EArrEl (Ident name) expr -> do
             t1 <- findVar name
             t2 <- checkType expr (T Int)
@@ -229,12 +211,14 @@ checkStmt (CondElse expr b1 b2) = do
 checkStmt (While expr b) = do
     checkType expr (T Bool)
     checkBlock b
-checkStmt (For ident expr b) = do           -- for i in range ...
-    checkType expr (T Int)
-    checkBlock b
-checkStmt (Print expr) = do
-    t <- typeOf expr
-    return ()
+-- checkStmt (For ident expr b) = do           -- for i in range ...
+--     checkType expr (T Int)
+--     checkBlock b
+checkStmt (Print (e:es)) = do
+    t <- typeOf e
+    checkStmt (Print es)
+checkStmt (Print []) = return ()
+-- checkStmt (PrintLn exps) = checkStmt (Print exps)
     
 
 

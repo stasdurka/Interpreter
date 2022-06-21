@@ -10,7 +10,7 @@ import Prelude (Integer, String)
 import qualified Prelude as C (Eq, Ord, Show, Read)
 import qualified Data.String
 
-data Program = Program [TopDef] Block
+data Program = Program [TopDef] Block | JustMain Block
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data TopDef = FnDef Type Ident [Arg] Block
@@ -38,8 +38,7 @@ data Stmt
     | Cond Expr Block
     | CondElse Expr Block Block
     | While Expr Block
-    | For Ident Expr Block
-    | Print Expr
+    | Print [Expr]
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Type = Int | Str | Bool

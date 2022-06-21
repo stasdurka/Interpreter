@@ -23,47 +23,44 @@ import LexTinyPlus
 %monad { Err } { (>>=) } { return }
 %tokentype {Token}
 %token
-  '!'       { PT _ (TS _ 1)  }
-  '!='      { PT _ (TS _ 2)  }
-  '%'       { PT _ (TS _ 3)  }
-  '&'       { PT _ (TS _ 4)  }
-  '&&'      { PT _ (TS _ 5)  }
-  '('       { PT _ (TS _ 6)  }
-  ')'       { PT _ (TS _ 7)  }
-  '*'       { PT _ (TS _ 8)  }
-  '+'       { PT _ (TS _ 9)  }
-  ','       { PT _ (TS _ 10) }
-  '-'       { PT _ (TS _ 11) }
-  '/'       { PT _ (TS _ 12) }
-  ';'       { PT _ (TS _ 13) }
-  '<'       { PT _ (TS _ 14) }
-  '<='      { PT _ (TS _ 15) }
-  '='       { PT _ (TS _ 16) }
-  '=='      { PT _ (TS _ 17) }
-  '>'       { PT _ (TS _ 18) }
-  '>='      { PT _ (TS _ 19) }
-  '['       { PT _ (TS _ 20) }
-  ']'       { PT _ (TS _ 21) }
-  'boolean' { PT _ (TS _ 22) }
-  'else'    { PT _ (TS _ 23) }
-  'false'   { PT _ (TS _ 24) }
-  'for'     { PT _ (TS _ 25) }
-  'if'      { PT _ (TS _ 26) }
-  'in'      { PT _ (TS _ 27) }
-  'int'     { PT _ (TS _ 28) }
-  'main'    { PT _ (TS _ 29) }
-  'print'   { PT _ (TS _ 30) }
-  'range'   { PT _ (TS _ 31) }
-  'return'  { PT _ (TS _ 32) }
-  'string'  { PT _ (TS _ 33) }
-  'true'    { PT _ (TS _ 34) }
-  'while'   { PT _ (TS _ 35) }
-  '{'       { PT _ (TS _ 36) }
-  '||'      { PT _ (TS _ 37) }
-  '}'       { PT _ (TS _ 38) }
-  L_Ident   { PT _ (TV $$)   }
-  L_integ   { PT _ (TI $$)   }
-  L_quoted  { PT _ (TL $$)   }
+  '!'      { PT _ (TS _ 1)  }
+  '!='     { PT _ (TS _ 2)  }
+  '%'      { PT _ (TS _ 3)  }
+  '&'      { PT _ (TS _ 4)  }
+  '&&'     { PT _ (TS _ 5)  }
+  '('      { PT _ (TS _ 6)  }
+  ')'      { PT _ (TS _ 7)  }
+  '*'      { PT _ (TS _ 8)  }
+  '+'      { PT _ (TS _ 9)  }
+  ','      { PT _ (TS _ 10) }
+  '-'      { PT _ (TS _ 11) }
+  '/'      { PT _ (TS _ 12) }
+  ';'      { PT _ (TS _ 13) }
+  '<'      { PT _ (TS _ 14) }
+  '<='     { PT _ (TS _ 15) }
+  '='      { PT _ (TS _ 16) }
+  '=='     { PT _ (TS _ 17) }
+  '>'      { PT _ (TS _ 18) }
+  '>='     { PT _ (TS _ 19) }
+  '['      { PT _ (TS _ 20) }
+  ']'      { PT _ (TS _ 21) }
+  'bool'   { PT _ (TS _ 22) }
+  'else'   { PT _ (TS _ 23) }
+  'false'  { PT _ (TS _ 24) }
+  'if'     { PT _ (TS _ 25) }
+  'int'    { PT _ (TS _ 26) }
+  'main'   { PT _ (TS _ 27) }
+  'print'  { PT _ (TS _ 28) }
+  'return' { PT _ (TS _ 29) }
+  'string' { PT _ (TS _ 30) }
+  'true'   { PT _ (TS _ 31) }
+  'while'  { PT _ (TS _ 32) }
+  '{'      { PT _ (TS _ 33) }
+  '||'     { PT _ (TS _ 34) }
+  '}'      { PT _ (TS _ 35) }
+  L_Ident  { PT _ (TV $$)   }
+  L_integ  { PT _ (TI $$)   }
+  L_quoted { PT _ (TL $$)   }
 
 %%
 
@@ -77,7 +74,9 @@ String  :: { String }
 String   : L_quoted { $1 }
 
 Program :: { AbsTinyPlus.Program }
-Program : ListTopDef 'main' Block { AbsTinyPlus.Program $1 $3 }
+Program
+  : ListTopDef 'main' Block { AbsTinyPlus.Program $1 $3 }
+  | 'main' Block { AbsTinyPlus.JustMain $2 }
 
 TopDef :: { AbsTinyPlus.TopDef }
 TopDef
@@ -126,14 +125,13 @@ Stmt
   | 'if' '(' Expr ')' Block { AbsTinyPlus.Cond $3 $5 }
   | 'if' '(' Expr ')' Block 'else' Block { AbsTinyPlus.CondElse $3 $5 $7 }
   | 'while' '(' Expr ')' Block { AbsTinyPlus.While $3 $5 }
-  | 'for' Ident 'in' 'range' '(' Expr ')' Block { AbsTinyPlus.For $2 $6 $8 }
-  | 'print' Expr ';' { AbsTinyPlus.Print $2 }
+  | 'print' ListExpr ';' { AbsTinyPlus.Print $2 }
 
 Type :: { AbsTinyPlus.Type }
 Type
   : 'int' { AbsTinyPlus.Int }
   | 'string' { AbsTinyPlus.Str }
-  | 'boolean' { AbsTinyPlus.Bool }
+  | 'bool' { AbsTinyPlus.Bool }
 
 ListType :: { [AbsTinyPlus.Type] }
 ListType

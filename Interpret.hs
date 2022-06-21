@@ -15,7 +15,8 @@ main = do
       [file] -> do
             s <- readFile file
             msg <- interp s
-            print $ msg
+            putStrLn ""
+            putStrLn msg
       _ -> putStrLn "Wrong number of arguments"
 
 

@@ -1,27 +1,32 @@
-Język imperatywny na 25 pkt.
+Język imperatywny na 24 pkt.
+Na 15 punktów
+  + 01 (trzy typy)
+  + 02 (literały, arytmetyka, porównania)
+  + 03 (zmienne, przypisanie)
+  + 04 (print)
+  + 05 (while, if)
+  + 06 (funkcje lub procedury, rekurencja)
+  + 07 (przez zmienną / przez wartość / in/out)
+  - 08 (zmienne read-only i pętla for) // zamiast tego 07, można wybrać jedno
+Na 20 punktów
+  + 09 (przesłanianie i statyczne wiązanie)
+  + 10 (obsługa błędów wykonania) -- dzielenie przez 0, wychodzenie poza zakres tablicy...
+  + 11 (funkcje zwracające wartość)
+Na 30 punktów
+  + 12 (4) (statyczne typowanie)
+  + 13 (2) (funkcje zagnieżdżone ze statycznym wiązaniem)
+  + 14 (1) (rekordy/listy/tablice/tablice wielowymiarowe)
+  - 15 (2) (krotki z przypisaniem)
+  - 16 (1) (break, continue)
+  - 17 (4) (funkcje wyższego rzędu, anonimowe, domknięcia)
+  - 18 (3) (generatory)
 
-Na 15 pkt
-    01 (trzy typy)
-    02 (literały, arytmetyka, porównania)
-    03 (zmienne, przypisanie)
-    04 (print)
-    05 (while, if)
-    06 (funkcje lub procedury, rekurencja)
-    07 (przez zmienną i przez wartość)
-    08 (zmienne read-only i pętla for)
-Na 20 pkt
-    09 (przesłanianie i statyczne wiązanie)
-    10 (obsługa błędów wykonania)
-    11 (funkcje zwracające wartość)
-Do 30 pkt
-    12 (4) (statyczne typowanie)
-    14 (1) (tablice indeksowane int)
-    18 (2) funkcje zagnieżdżone ze statycznym wiązaniem
+Razem: 27
+
 
 Opis języka:
 
-Język Latte z gramatyką podaną na Moodle z następującymi zmianami:
-
+Język o gramatyce podobnej do Tiny z rozszerzeniami jak w tabelce funkcjonalności powyżej
 -- wymuszone nawiasy klamrowe dla if, else, while
 np.
 
@@ -31,33 +36,43 @@ if (x > 0) {
     return 0;
 }
 
--- brak procedur oraz void, tylko funkcje
+-- brak procedur oraz void, tylko funkcje zwracające int
 
 -- tablice jednowymiarowe indeksowane int 
     -> wymóg określenia rozmiaru przy deklaracji, np.
     int[10] arr;
     arr[0] = arr[3] + 5 ;
 
--- pętla "for i in range (<Expr>)" z i jako zmienna "read only"
+-- pętla "for i in range (<Expr>)", ale bez dostępu do zmiennej i
 
-przykładowy program:
+bloki przysłaniające deklaracje zmiennych, z deklaracjami zawsze na górze bloku, lub bez:
 
-int[] sum (int[] a, int[] b, int[] res) {
-  int i = 0;
-
-  while (i < 10) {
-    res[i] = a[i] + b[i];
-    i++;
+int main [int x = 0] {
+  print x; # x == 0
+  [int x] {
+    x = 1;
+    print x; # x == 1
   }
-  return res;
+  print x; # x == 0
 }
 
-przykładowy program ilustrujący pętlę for:
-
-int func (int x) {
-  int z = x;
-  for i in range (10) {
-    z++;
+-- "return" zwraca wynik jeśli jest wywołany w funkcji oraz rekurencyjnie przerywa pętle i bloki
+while (i < n) {
+  i = i+1;
+  if (i == 2) {
+    return 0; # przerwie pętlę
   }
-  return z;
 }
+
+-- program musi być postaci: <ciąg deklaracji funkcji>, blok "main":
+int f(int x)  {
+  return x;
+}
+main [int z]{
+  z = 1;
+  f(z);
+}
+
+-- program wywoływany za pomocą:
+ghc --make Interpret.hs
+./Interpret <nazwa pliku z kodem>

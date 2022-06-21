@@ -1,0 +1,32 @@
+int f(int arr[]) {
+    println arr[0];
+    arr[2] = 1234;
+    return 0;
+}
+
+int g(int &x) {
+    println x;
+    x = 99;
+    return 1;
+}
+
+main [bool x = true; int a[3]; int z = 3] {
+    a[2] = 100;
+    #g(a[2]);
+    g(z);
+    print "z:";
+    println z;
+    [int b[3]] {
+        b = a;
+        println "b: ";
+        print b[2];
+        print "a: ";
+        println a[2];
+        f(a);
+        println a[2];
+        println a;
+    }
+    print x;
+    
+    print x;
+}

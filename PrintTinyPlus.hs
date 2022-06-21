@@ -143,6 +143,7 @@ instance Print AbsTinyPlus.Ident where
 instance Print AbsTinyPlus.Program where
   prt i = \case
     AbsTinyPlus.Program topdefs block -> prPrec i 0 (concatD [prt 0 topdefs, doc (showString "main"), prt 0 block])
+    AbsTinyPlus.JustMain block -> prPrec i 0 (concatD [doc (showString "main"), prt 0 block])
 
 instance Print AbsTinyPlus.TopDef where
   prt i = \case
@@ -195,14 +196,13 @@ instance Print AbsTinyPlus.Stmt where
     AbsTinyPlus.Cond expr block -> prPrec i 0 (concatD [doc (showString "if"), doc (showString "("), prt 0 expr, doc (showString ")"), prt 0 block])
     AbsTinyPlus.CondElse expr block1 block2 -> prPrec i 0 (concatD [doc (showString "if"), doc (showString "("), prt 0 expr, doc (showString ")"), prt 0 block1, doc (showString "else"), prt 0 block2])
     AbsTinyPlus.While expr block -> prPrec i 0 (concatD [doc (showString "while"), doc (showString "("), prt 0 expr, doc (showString ")"), prt 0 block])
-    AbsTinyPlus.For id_ expr block -> prPrec i 0 (concatD [doc (showString "for"), prt 0 id_, doc (showString "in"), doc (showString "range"), doc (showString "("), prt 0 expr, doc (showString ")"), prt 0 block])
-    AbsTinyPlus.Print expr -> prPrec i 0 (concatD [doc (showString "print"), prt 0 expr, doc (showString ";")])
+    AbsTinyPlus.Print exprs -> prPrec i 0 (concatD [doc (showString "print"), prt 0 exprs, doc (showString ";")])
 
 instance Print AbsTinyPlus.Type where
   prt i = \case
     AbsTinyPlus.Int -> prPrec i 0 (concatD [doc (showString "int")])
     AbsTinyPlus.Str -> prPrec i 0 (concatD [doc (showString "string")])
-    AbsTinyPlus.Bool -> prPrec i 0 (concatD [doc (showString "boolean")])
+    AbsTinyPlus.Bool -> prPrec i 0 (concatD [doc (showString "bool")])
 
 instance Print [AbsTinyPlus.Type] where
   prt _ [] = concatD []

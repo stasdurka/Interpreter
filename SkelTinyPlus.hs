@@ -22,6 +22,7 @@ transIdent x = case x of
 transProgram :: AbsTinyPlus.Program -> Result
 transProgram x = case x of
   AbsTinyPlus.Program topdefs block -> failure x
+  AbsTinyPlus.JustMain block -> failure x
 
 transTopDef :: AbsTinyPlus.TopDef -> Result
 transTopDef x = case x of
@@ -59,8 +60,7 @@ transStmt x = case x of
   AbsTinyPlus.Cond expr block -> failure x
   AbsTinyPlus.CondElse expr block1 block2 -> failure x
   AbsTinyPlus.While expr block -> failure x
-  AbsTinyPlus.For ident expr block -> failure x
-  AbsTinyPlus.Print expr -> failure x
+  AbsTinyPlus.Print exprs -> failure x
 
 transType :: AbsTinyPlus.Type -> Result
 transType x = case x of

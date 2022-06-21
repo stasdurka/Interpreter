@@ -24,9 +24,9 @@ type Store = M.Map Loc Val
 
 type RSEIO a = ReaderT Env (StateT Store (ExceptT String IO)) a
 
-type FuncDef = (Block, [String])    -- [Val] == arg names
+type FuncDef = (Block, [Arg])    -- [Val] == arg names
 
-data Val = IntVal Integer | BoolVal Bool | StrVal String | FunVal  (Block, [String]) --FuncDef
+data Val = None | IntVal Integer | BoolVal Bool | StrVal String | FunVal  (Block, [Arg]) --FuncDef
     deriving Show
 
 evalRelOp GTH e1 e2 = e1 > e2
@@ -49,13 +49,17 @@ newloc m = if M.null m then 0
 
 newloc' :: RSEIO Loc
 newloc' = do 
-  m <- get 
-  if M.null m then return 0 
-  else let (i, w) = M.findMax m in return (i+1) 
+    m <- get 
+    if M.null m then return 0 
+    else let (i, w) = M.findMax m in return (i+1)
+    -- env <- ask
+    -- if M.null env then return 0
+    -- else return $ toInteger (M.size env) + 1
 
 
-findVar :: String -> RSEIO Loc
-findVar name = do
+
+findLoc :: String -> RSEIO Loc
+findLoc name = do
     mt <- asks (M.lookup name)
     case mt of
         Just l -> return l
@@ -85,7 +89,7 @@ getStrVal :: Val -> RSEIO String
 getStrVal v = case v of
     (StrVal s) -> return s
     _ -> throwError "String value expected"
-getFnVal :: Val -> RSEIO (Block, [String]) -- FuncDef
+getFnVal :: Val -> RSEIO (Block, [Arg]) -- FuncDef
 getFnVal v = case v of
     FunVal f -> return f
     _ -> throwError "Function definition expected"
@@ -100,7 +104,7 @@ evalExp (Elval (EVar (Ident name))) = do
     v <- evalMaybe ("variable not initialized: "++name) $ M.lookup l state   -- returns value if found
     return v
 evalExp (Elval (EArrEl (Ident name) expr)) = do
-    loc <- findVar name
+    loc <- findLoc name
     size' <- findVal loc            -- arr[0] == size of the array
     size <- getIntVal size'
 
@@ -116,20 +120,35 @@ evalExp (Elval (EArrEl (Ident name) expr)) = do
 evalExp (ELitInt n) = return $ IntVal n
 evalExp ELitFalse = return $ BoolVal False
 evalExp ELitTrue = return $ BoolVal True
+
 evalExp (EApp (Ident name) argvalues) = do
-    loc <- findVar name     -- find the location where functions definition is stored
+    loc <- findLoc name     -- find the location where functions definition is stored
     f_def_v <- findVal loc
     -- type FuncDef = (Block, [String])    -- [Val] == arg names
     (block, argnames) <- getFnVal f_def_v
     v <- evalF block argnames argvalues
     return v
     where
-        evalF :: Block -> [String] -> [Expr] -> RSEIO Val
+        evalF :: Block -> [Arg] -> [Expr] -> RSEIO Val
         evalF b (a:args) (e:exps) = do
-            l <- newloc'
-            val <- evalExp e
-            modify (M.insert l val)
-            local (M.insert a l) (evalF b args exps)
+            case a of
+                Arg t (Ident id) -> do
+                    val <- evalExp e
+                    l <- newloc'
+                    modify (M.insert l val)
+                    local (M.insert id l) (evalF b args exps)
+                ArrRef t (Ident name) ->
+                    case e of
+                        Elval (EVar (Ident expr_id)) -> do
+                            loc <- findLoc expr_id -- find the storage location of the parameter,
+                            local (M.insert name loc) (evalF b args exps) -- and bind the arg name within the function to that location
+                        _ -> throwError "function parameter is not an array reference"
+                VarRef t (Ident id) ->
+                    case e of
+                        Elval (EVar (Ident expr_id)) -> do
+                            loc <- findLoc expr_id -- find the storage location of the parameter,
+                            local (M.insert name loc) (evalF b args exps) -- and bind the arg name within the function to that location
+                        _ -> throwError "function parameter is not a variable reference"
         evalF b [] [] = do
             v <- interpret (BStmt b)
             case v of
@@ -155,7 +174,8 @@ evalExp (EMul e1 op e2) = do
     v1 <- getIntVal vv1
     vv2 <- evalExp e2
     v2 <- getIntVal vv2
-    return $ IntVal $ evalMulOp op v1 v2
+    if op == Div && v2 == 0 then throwError "Division by zero"
+    else return $ IntVal $ evalMulOp op v1 v2
 
 evalExp (EAdd e1 op e2) = do
     vv1 <- evalExp e1
@@ -220,7 +240,7 @@ interpret (Ass (EArrEl (Ident name) index_exp) val_exp) = do
  
 -- interpret (Incr (EArrEl id e)) = 
 --     return Nothing   -- TODO
---     l <- findVar name
+--     l <- findLoc name
 --     sizeval <- findVal l
 --     size <- getIntVal sizeval
 --     arr_el_val <- findVal (l+i+1)
@@ -281,31 +301,37 @@ interpret (While e b) = do
     vv <- evalExp e
     cond <- getBoolVal vv
     if cond == False then return Nothing
-    else do {interpret (BStmt b); interpret (While e b)} 
+    else do 
+        ret <- interpret (BStmt b)
+        if ret == Nothing then
+            interpret (While e b)
+        else
+            return ret
 
-interpret (For (Ident i) exp block) = do
-    range' <- evalExp exp
-    range <- getIntVal range'
-    if range > 0 then
-        throwError "range can't be negative in a 'for' loop"
-    else do
-        let i = 0
-        interpFor i range (BStmt block)
-        where
-            interpFor :: Integer -> Integer -> Stmt -> RSEIO (Maybe Integer)
-            interpFor i range bstmt = do
-                if i == range then return Nothing
-                else do
-                    ret <- interpret bstmt
-                    case ret of
-                        Nothing -> interpFor (i+1) range bstmt
-                        Just n -> return $ Just n
+-- interpret (For (Ident i) exp block) = do
+--     range' <- evalExp exp
+--     range <- getIntVal range'
+--     if range > 0 then
+--         throwError "range can't be negative in a 'for' loop"
+--     else do
+--         let i = 0
+--         interpFor i range (BStmt block)
+--         where
+--             interpFor :: Integer -> Integer -> Stmt -> RSEIO (Maybe Integer)
+--             interpFor i range bstmt = do
+--                 if i == range then return Nothing
+--                 else do
+--                     ret <- interpret bstmt
+--                     case ret of
+--                         Nothing -> interpFor (i+1) range bstmt
+--                         Just n -> return $ Just n
 interpret (Func e) = do
     evalExp e
     return Nothing
 
 interpret (BStmt (NoDecl s)) = interpret s
-interpret (BStmt (Block [] s)) =  interpret s
+
+interpret (BStmt (Block [] s)) = interpret s
 
 interpret (BStmt (Block ((Decl t item):ds) s)) =
     case item of
@@ -316,22 +342,37 @@ interpret (BStmt (Block ((Decl t item):ds) s)) =
             local (M.insert x l) (interpret (BStmt (Block ds s)))
         NoInit (Ident x) -> do
             l <- newloc'
+            modify (M.insert l None) -- TODO
             local (M.insert x l) (interpret (BStmt (Block ds s)))
+        -- ArrInit (Ident x) expr -> do
+        --     v <- evalExp expr       -- array size (IntVal)
+        --     arr_size <- getIntVal v
+        --     l <- newloc'
+        --     modify (M.insert l v)    -- arr[0] = size...
+        --     newZerosArr arr_size
+        --     local (M.insert x l) (interpret (BStmt (Block ds s)))
+        --     where   -- initializes array of zeros of size n
+        --         newZerosArr :: Integer -> RSEIO ()
+        --         newZerosArr 0 = return ()
+        --         newZerosArr n = do
+        --             l'' <- newloc'
+        --             modify (M.insert l'' (IntVal 0))
+        --             newZerosArr (n-1)
         ArrInit (Ident x) expr -> do
             v <- evalExp expr       -- array size (IntVal)
             arr_size <- getIntVal v
             l <- newloc'
-            modify (M.insert l v)    -- arr[0] = size (paradoksalnie:))
-            newZerosArr arr_size
+            modify (M.insert l v)    -- arr[0] = size...
+            newZerosArr arr_size (l+1)
             local (M.insert x l) (interpret (BStmt (Block ds s)))
             where   -- initializes array of zeros of size n
-                newZerosArr :: Integer -> RSEIO ()
-                newZerosArr 0 = return ()
-                newZerosArr n = do
-                    l <- newloc'
+                newZerosArr :: Integer -> Loc -> RSEIO ()
+                newZerosArr 0 _ = return ()
+                newZerosArr n l = do
                     modify (M.insert l (IntVal 0))
-                    newZerosArr (n-1)
-interpret (Print e) = do
+                    newZerosArr (n-1) (l+1)
+
+interpret (Print [e]) = do
     v <- evalExp e
     liftIO $ putStrLn $ showVal v
     return Nothing
@@ -340,8 +381,53 @@ interpret (Print e) = do
         showVal v = case v of
             IntVal n -> show n
             BoolVal b -> show b
-            StrVal str -> show str
+            StrVal str -> str
             FunVal f -> show f
+            None -> show None
+
+interpret (Print (e:es)) = do
+    v <- evalExp e
+    liftIO $ putStr $ showVal v
+    interpret (Print es)
+    where
+        showVal :: Val -> String
+        showVal v = case v of
+            IntVal n -> show n
+            BoolVal b -> show b
+            StrVal str -> str
+            FunVal f -> show f
+            None -> show None
+
+interpret (Print []) = return Nothing
+
+-- interpret (PrintLn e) = do
+--     interpret (Print e)
+--     return Nothing
+-- interpret (Print e) = do
+--     v <- evalExp e
+--     liftIO $ putStr $ showVal v
+--     return Nothing
+--     where
+--         showVal :: Val -> String
+--         showVal v = case v of
+--             IntVal n -> show n
+--             BoolVal b -> show b
+--             StrVal str -> str
+--             FunVal f -> show f
+--             None -> show None
+
+-- interpret (PrintLn e) = do
+--     v <- evalExp e
+--     liftIO $ putStrLn $ showVal v
+--     return Nothing
+--     where
+--         showVal :: Val -> String
+--         showVal v = case v of
+--             IntVal n -> show n
+--             BoolVal b -> show b
+--             StrVal str -> str
+--             FunVal f -> show f 
+--             None -> show None
 
 interpretBlock :: Block -> RSEIO (Maybe Integer)
 interpretBlock b = interpret $ BStmt b
@@ -352,19 +438,20 @@ interpretProgram (Program ((FnDef t (Ident fname) args block):fns) b) = do
     modify (M.insert l newFunc)
     local (M.insert fname l) (interpretProgram (Program fns b))
     where
-        newFunc = FunVal (block, argnames)
-        argnames = fmap getName args
-        getName :: Arg -> String
-        getName (Arg t (Ident name)) = name
-        getName (ArrRef t (Ident name)) = name
-        getName (VarRef t (Ident name)) = name
+        newFunc = FunVal (block, args)
+        -- newFunc = FunVal (block, argnames)
+        -- argnames = fmap getName args
+        -- getName :: Arg -> String
+        -- getName (Arg t (Ident name)) = name
+        -- getName (ArrRef t (Ident name)) = name
+        -- getName (VarRef t (Ident name)) = name
 
 interpretProgram (Program [] b_main) = do
-    interpret (BStmt b_main)
     ret <- interpret (BStmt b_main)
     case ret of 
         Just n -> return n
         Nothing -> return 0
+interpretProgram (JustMain b_main) = interpretProgram (Program [] b_main)
 
 
 execStmt :: Stmt -> IO (Either String Store)
@@ -381,7 +468,9 @@ exec p = do
     ret <- execProgram p
     case ret of
         Left err -> return $ "runtime error: " ++ err
-        Right s -> return $ "main executed successfully"
+        Right s -> return "main executed successfully"
+
+
 
 -- b1 = BStmt $
 --     Block 
@@ -395,12 +484,24 @@ exec p = do
 --     )
 
 
-b = Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Seq (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))) (Ass (EArrEl (Ident "arr") (ELitInt 1)) (ELitInt 5))))
+-- b = Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Seq (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))) (Ass (EArrEl (Ident "arr") (ELitInt 1)) (ELitInt 5))))
 
--- let p1 = Program [FnDef Int (Ident "main") [] (Block [Decl Int (NoInit (Ident "x"))] (Seq (Ass (EVar (Ident "x")) (ELitInt 1)) (Seq (Incr (EVar (Ident "x"))) (Ret (Elval (EVar (Ident "x")))))))]
-b' = Block [Decl Int (NoInit (Ident "z")), Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))))
--- let p = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1))))))
+-- -- let p1 = Program [FnDef Int (Ident "main") [] (Block [Decl Int (NoInit (Ident "x"))] (Seq (Ass (EVar (Ident "x")) (ELitInt 1)) (Seq (Incr (EVar (Ident "x"))) (Ret (Elval (EVar (Ident "x")))))))]
+-- b' = Block [Decl Int (NoInit (Ident "z")), Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))))
+-- -- let p = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1))))))
 
-test_arr = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Seq (Ass (EArrEl (Ident "arr") (ELitInt 1)) (ELitInt 100)) (Print (EAdd (Elval (EArrEl (Ident "arr") (ELitInt 1))) Plus (ELitInt 1)))))
-test0 = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Ass (EArrEl (Ident "arr") (ELitInt 0)) (ELitInt 100)))
-bad = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z"))] (Ass (EVar (Ident "x")) (ELitInt 2)))
+-- test_arr = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Seq (Ass (EArrEl (Ident "arr") (ELitInt 1)) (ELitInt 100)) (Print (EAdd (Elval (EArrEl (Ident "arr") (ELitInt 1))) Plus (ELitInt 1)))))
+-- test0 = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Ass (EArrEl (Ident "arr") (ELitInt 0)) (ELitInt 100)))
+-- bad = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z"))] (Ass (EVar (Ident "x")) (ELitInt 2)))
+
+-- tt = Program [FnDef Int (Ident "f") [Arg Int (Ident "z")] (NoDecl (Seq (Ass (EVar (Ident "z")) (ELitInt 1)) (Ret (ELitInt 3)))),FnDef Int (Ident "g") [] (Block [Decl Int (NoInit (Ident "i"))] (Seq (Ass (EVar (Ident "i")) (ELitInt 0)) (Ret (EApp (Ident "f") [Elval (EVar (Ident "i"))]))))] (Block [Decl Int (ArrInit (Ident "arr") (ELitInt 5)),Decl Int (NoInit (Ident "i")),Decl Bool (NoInit (Ident "b"))] (Seq (Ass (EVar (Ident "i")) (ELitInt 0)) (Seq (While (ERel (Elval (EVar (Ident "i"))) LTH (ELitInt 5)) 
+--     (NoDecl 
+--         (Seq (Ass (EArrEl (Ident "arr") 
+--              (Elval (EVar (Ident "i")))) 
+--              (Elval (EVar (Ident "i")))) 
+--              (Ass (EVar (Ident "i")) 
+--              (EAdd (Elval (EVar (Ident "i"))) Plus (ELitInt 1)))))
+--              ) 
+--              (Seq (Ass (EVar (Ident "b")) ELitTrue) 
+--              (Print (Elval (EVar (Ident "b"))))))))
+
