@@ -388,7 +388,7 @@ interpret (PrintLn [e]) = do
 interpret (PrintLn (e:es)) = do
     v <- evalExp e
     liftIO $ putStr $ showVal v
-    interpret (Print es)
+    interpret (PrintLn es)
     where
         showVal :: Val -> String
         showVal v = case v of
@@ -414,35 +414,6 @@ interpret (Print (e:es)) = do
             None -> show None
 
 interpret (Print []) = return Nothing
-
--- interpret (PrintLn e) = do
---     interpret (Print e)
---     return Nothing
--- interpret (Print e) = do
---     v <- evalExp e
---     liftIO $ putStr $ showVal v
---     return Nothing
---     where
---         showVal :: Val -> String
---         showVal v = case v of
---             IntVal n -> show n
---             BoolVal b -> show b
---             StrVal str -> str
---             FunVal f -> show f
---             None -> show None
-
--- interpret (PrintLn e) = do
---     v <- evalExp e
---     liftIO $ putStrLn $ showVal v
---     return Nothing
---     where
---         showVal :: Val -> String
---         showVal v = case v of
---             IntVal n -> show n
---             BoolVal b -> show b
---             StrVal str -> str
---             FunVal f -> show f 
---             None -> show None
 
 interpretBlock :: Block -> RSEIO (Maybe Integer)
 interpretBlock b = interpret $ BStmt b
@@ -478,39 +449,4 @@ exec p = do
     case ret of
         Left err -> return $ "runtime error: " ++ err
         Right s -> return "main executed successfully"
-
-
-
--- b1 = BStmt $
---     Block 
---     [Decl Int (NoInit (Ident "x"))] 
---     (Seq 
---         (Ass (EVar (Ident "x")) (ELitInt 1)) 
---         (Seq 
---             (Incr (EVar (Ident "y"))) 
---             (Ret (Elval (EVar (Ident "x"))))
---         )
---     )
-
-
--- b = Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Seq (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))) (Ass (EArrEl (Ident "arr") (ELitInt 1)) (ELitInt 5))))
-
--- -- let p1 = Program [FnDef Int (Ident "main") [] (Block [Decl Int (NoInit (Ident "x"))] (Seq (Ass (EVar (Ident "x")) (ELitInt 1)) (Seq (Incr (EVar (Ident "x"))) (Ret (Elval (EVar (Ident "x")))))))]
--- b' = Block [Decl Int (NoInit (Ident "z")), Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1)))))
--- -- let p = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z")),Decl Int (ArrInit (Ident "arr") (ELitInt 10))] (Seq (Ass (EVar (Ident "z")) (ELitInt 2)) (Ass (EVar (Ident "z")) (Elval (EArrEl (Ident "arr") (ELitInt 1))))))
-
--- test_arr = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Seq (Ass (EArrEl (Ident "arr") (ELitInt 1)) (ELitInt 100)) (Print (EAdd (Elval (EArrEl (Ident "arr") (ELitInt 1))) Plus (ELitInt 1)))))
--- test0 = Program [FnDef Int (Ident "f") [Arg Int (Ident "x")] (Block [Decl Int (Init (Ident "k") (ELitInt 0))] (Seq (Ass (EVar (Ident "x")) (EAdd (Elval (EVar (Ident "x"))) Plus (ELitInt 1))) (Ret (Elval (EVar (Ident "x"))))))] (Block [Decl Int (Init (Ident "z") (ELitInt 2)),Decl Int (ArrInit (Ident "arr") (ELitInt 5))] (Ass (EArrEl (Ident "arr") (ELitInt 0)) (ELitInt 100)))
--- bad = Program [FnDef Int (Ident "f") [] (Block [Decl Int (NoInit (Ident "x"))] (Ass (EVar (Ident "x")) (ELitInt 1)))] (Block [Decl Int (NoInit (Ident "z"))] (Ass (EVar (Ident "x")) (ELitInt 2)))
-
--- tt = Program [FnDef Int (Ident "f") [Arg Int (Ident "z")] (NoDecl (Seq (Ass (EVar (Ident "z")) (ELitInt 1)) (Ret (ELitInt 3)))),FnDef Int (Ident "g") [] (Block [Decl Int (NoInit (Ident "i"))] (Seq (Ass (EVar (Ident "i")) (ELitInt 0)) (Ret (EApp (Ident "f") [Elval (EVar (Ident "i"))]))))] (Block [Decl Int (ArrInit (Ident "arr") (ELitInt 5)),Decl Int (NoInit (Ident "i")),Decl Bool (NoInit (Ident "b"))] (Seq (Ass (EVar (Ident "i")) (ELitInt 0)) (Seq (While (ERel (Elval (EVar (Ident "i"))) LTH (ELitInt 5)) 
---     (NoDecl 
---         (Seq (Ass (EArrEl (Ident "arr") 
---              (Elval (EVar (Ident "i")))) 
---              (Elval (EVar (Ident "i")))) 
---              (Ass (EVar (Ident "i")) 
---              (EAdd (Elval (EVar (Ident "i"))) Plus (ELitInt 1)))))
---              ) 
---              (Seq (Ass (EVar (Ident "b")) ELitTrue) 
---              (Print (Elval (EVar (Ident "b"))))))))
 

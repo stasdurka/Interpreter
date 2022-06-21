@@ -1,5 +1,5 @@
 # test podstaw (do 15 pkt)
-# wypisuje liczby fibonacciego mniejsze od 100
+# wypisuje liczby Fibonacciego mniejsze od 100
 
 # 01 (trzy typy)
 # 02 (literały, arytmetyka, porównania)
@@ -26,7 +26,7 @@ main [int i; int x; bool stop = false;
         if (x > 100) {
             stop = true;
         } else {
-            print "fibo(", i, ") = ", x;
+            println "fibo(", i, ") = ", x;
             i = i+1;
         }
     }
