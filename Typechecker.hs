@@ -218,7 +218,7 @@ checkStmt (Print (e:es)) = do
     t <- typeOf e
     checkStmt (Print es)
 checkStmt (Print []) = return ()
--- checkStmt (PrintLn exps) = checkStmt (Print exps)
+checkStmt (PrintLn exps) = checkStmt (Print exps)
     
 
 

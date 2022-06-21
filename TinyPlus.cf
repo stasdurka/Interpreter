@@ -64,7 +64,7 @@ While.     Stmt ::= "while" "(" Expr ")" Block ;
 
 Print.     Stmt ::= "print" [Expr] ";" ;
 
--- PrintLn.  Stmt ::= "println" [Expr] ";" ;
+PrintLn.  Stmt ::= "println" [Expr] ";" ;
 
 -- SExp.      Stmt ::= Expr  ";" ;
 

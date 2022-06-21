@@ -372,7 +372,7 @@ interpret (BStmt (Block ((Decl t item):ds) s)) =
                     modify (M.insert l (IntVal 0))
                     newZerosArr (n-1) (l+1)
 
-interpret (Print [e]) = do
+interpret (PrintLn [e]) = do
     v <- evalExp e
     liftIO $ putStrLn $ showVal v
     return Nothing
@@ -384,6 +384,21 @@ interpret (Print [e]) = do
             StrVal str -> str
             FunVal f -> show f
             None -> show None
+
+interpret (PrintLn (e:es)) = do
+    v <- evalExp e
+    liftIO $ putStr $ showVal v
+    interpret (Print es)
+    where
+        showVal :: Val -> String
+        showVal v = case v of
+            IntVal n -> show n
+            BoolVal b -> show b
+            StrVal str -> str
+            FunVal f -> show f
+            None -> show None
+
+interpret (PrintLn []) = return Nothing
 
 interpret (Print (e:es)) = do
     v <- evalExp e
@@ -439,12 +454,6 @@ interpretProgram (Program ((FnDef t (Ident fname) args block):fns) b) = do
     local (M.insert fname l) (interpretProgram (Program fns b))
     where
         newFunc = FunVal (block, args)
-        -- newFunc = FunVal (block, argnames)
-        -- argnames = fmap getName args
-        -- getName :: Arg -> String
-        -- getName (Arg t (Ident name)) = name
-        -- getName (ArrRef t (Ident name)) = name
-        -- getName (VarRef t (Ident name)) = name
 
 interpretProgram (Program [] b_main) = do
     ret <- interpret (BStmt b_main)

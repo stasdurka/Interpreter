@@ -61,6 +61,7 @@ transStmt x = case x of
   AbsTinyPlus.CondElse expr block1 block2 -> failure x
   AbsTinyPlus.While expr block -> failure x
   AbsTinyPlus.Print exprs -> failure x
+  AbsTinyPlus.PrintLn exprs -> failure x
 
 transType :: AbsTinyPlus.Type -> Result
 transType x = case x of

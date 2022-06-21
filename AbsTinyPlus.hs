@@ -39,6 +39,7 @@ data Stmt
     | CondElse Expr Block Block
     | While Expr Block
     | Print [Expr]
+    | PrintLn [Expr]
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Type = Int | Str | Bool

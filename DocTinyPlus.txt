@@ -31,8 +31,8 @@ The set of reserved words is the set of terminals appearing in the grammar. Thos
 
 The reserved words used in TinyPlus are the following:
   | ``bool`` | ``else`` | ``false`` | ``if``
-  | ``int`` | ``main`` | ``print`` | ``return``
-  | ``string`` | ``true`` | ``while`` |
+  | ``int`` | ``main`` | ``print`` | ``println``
+  | ``return`` | ``string`` | ``true`` | ``while``
 
 The symbols used in TinyPlus are the following:
   | ( | ) | [ | ]
@@ -80,6 +80,7 @@ All other symbols are terminals.
   |  |  **|**  | ``if`` ``(`` //Expr// ``)`` //Block// ``else`` //Block//
   |  |  **|**  | ``while`` ``(`` //Expr// ``)`` //Block//
   |  |  **|**  | ``print`` //[Expr]// ``;``
+  |  |  **|**  | ``println`` //[Expr]// ``;``
   | //Type// | -> | ``int``
   |  |  **|**  | ``string``
   |  |  **|**  | ``bool``

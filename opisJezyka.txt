@@ -1,3 +1,10 @@
+---------------------------------------------
+        bnfc -m TinyPlus.cf
+        make
+        ghc --make Interpret.hs
+        ./Interpret <nazwa-pliku>
+----------------------------------------------
+
 Język imperatywny na 24 pkt.
 Na 15 punktów
   + 01 (trzy typy)
@@ -15,19 +22,22 @@ Na 20 punktów
 Na 30 punktów
   + 12 (4) (statyczne typowanie)
   + 13 (2) (funkcje zagnieżdżone ze statycznym wiązaniem)
-  + 14 (1) (rekordy/listy/tablice/tablice wielowymiarowe)
+  + 14 (1) (tablice)
   - 15 (2) (krotki z przypisaniem)
-  - 16 (1) (break, continue)
+  - 16 (1) (break, continue) <---- (return działa jak break)
   - 17 (4) (funkcje wyższego rzędu, anonimowe, domknięcia)
   - 18 (3) (generatory)
 
-Razem: 27
+Razem: 27 punktów
 
 
 Opis języka:
 
-Język o gramatyce podobnej do Tiny z rozszerzeniami jak w tabelce funkcjonalności powyżej
--- wymuszone nawiasy klamrowe dla if, else, while
+Język o gramatyce podobnej do C,
+główną modyfikacją będącą podział na deklaracje oraz instrukcje w bloku,
+jak w języku Tiny z wykładu Semantyki
+
+> wymuszone nawiasy klamrowe dla if, else, while
 np.
 
 if (x > 0) { 
@@ -36,16 +46,16 @@ if (x > 0) {
     return 0;
 }
 
--- brak procedur oraz void, tylko funkcje zwracające int
+> brak procedur oraz void, tylko funkcje zwracające int
+> (można łatwo rozszerzyć, żeby funkcje zwracały również bool i str,
+>  ale na omówieniu zadania dr. Chrząszcz powiedział, że wystarczy int)
 
--- tablice jednowymiarowe indeksowane int 
-    -> wymóg określenia rozmiaru przy deklaracji, np.
-    int[10] arr;
-    arr[0] = arr[3] + 5 ;
+> tablice jednowymiarowe indeksowane int 
+    > wymóg określenia rozmiaru przy deklaracji, np.
+    int[n] arr;
+    arr[0] = arr[f(n)] + 3 ;
 
--- pętla "for i in range (<Expr>)", ale bez dostępu do zmiennej i
-
-bloki przysłaniające deklaracje zmiennych, z deklaracjami zawsze na górze bloku, lub bez:
+> bloki przysłaniające deklaracje zmiennych, z deklaracjami zawsze na górze bloku, lub bez:
 
 int main [int x = 0] {
   print x; # x == 0
@@ -56,7 +66,7 @@ int main [int x = 0] {
   print x; # x == 0
 }
 
--- "return" zwraca wynik jeśli jest wywołany w funkcji oraz rekurencyjnie przerywa pętle i bloki
+> "return" zwraca wynik jeśli jest wywołany w funkcji oraz rekurencyjnie przerywa pętle i bloki
 while (i < n) {
   i = i+1;
   if (i == 2) {
@@ -64,7 +74,8 @@ while (i < n) {
   }
 }
 
--- program musi być postaci: <ciąg deklaracji funkcji>, blok "main":
+> programy postaci: <ciąg deklaracji funkcji>, blok "main":
+> (konieczna obecność funkcji main)
 int f(int x)  {
   return x;
 }
@@ -73,6 +84,3 @@ main [int z]{
   f(z);
 }
 
--- program wywoływany za pomocą:
-ghc --make Interpret.hs
-./Interpret <nazwa pliku z kodem>
